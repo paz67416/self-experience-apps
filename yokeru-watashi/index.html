@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>避けるわたし - Keep the Self</title>
+<style>
+  *{box-sizing:border-box}
+  body,html{
+    margin:0;padding:0;width:100%;height:100%;
+    background:#000;overflow:hidden;font-family:"Helvetica Neue",Arial,sans-serif;
+    user-select:none;
+  }
+  canvas{display:block;cursor:none}
+
+  #overlay{
+    position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;background:#000;
+    color:rgba(255,255,255,.72);cursor:pointer;z-index:20;
+    transition:opacity 1s ease;text-align:center;letter-spacing:.08em;
+  }
+  #overlay.hidden{opacity:0;pointer-events:none}
+  #title{font-size:28px;font-weight:300;margin-bottom:18px;color:rgba(255,255,255,.82)}
+  #desc{font-size:13px;line-height:1.9;color:rgba(255,255,255,.42)}
+
+  #ui{
+    position:absolute;top:18px;left:50%;transform:translateX(-50%);
+    width:min(590px,calc(100vw - 34px));z-index:10;opacity:0;
+    transition:opacity 1s ease;pointer-events:none;
+  }
+  #ui.show{opacity:1}
+  #line{
+    display:flex;justify-content:space-between;margin-bottom:8px;
+    font-size:12px;letter-spacing:.06em;color:rgba(255,255,255,.42);
+  }
+  #barWrap{
+    height:11px;border:1px solid rgba(255,255,255,.18);
+    background:rgba(255,255,255,.04);border-radius:999px;overflow:hidden;
+  }
+  #lifeBar{
+    width:100%;height:100%;border-radius:999px;background:rgba(0,255,255,.62);
+    transition:width .1s linear, background .2s ease;
+  }
+  #timeWrap{
+    margin-top:7px;height:4px;background:rgba(255,255,255,.06);
+    border-radius:999px;overflow:hidden;
+  }
+  #timeBar{
+    width:0%;height:100%;background:rgba(255,255,255,.32);border-radius:999px;
+  }
+
+  #msg{
+    position:absolute;left:50%;bottom:10%;transform:translateX(-50%);
+    color:rgba(255,255,255,.52);font-size:15px;letter-spacing:.08em;
+    opacity:0;transition:opacity .8s ease;z-index:10;pointer-events:none;
+    white-space:nowrap;text-align:center;
+  }
+  #msg.show{opacity:1}
+
+  #guide{
+    position:absolute;left:50%;bottom:5%;transform:translateX(-50%);
+    color:rgba(255,255,255,.22);font-size:12px;letter-spacing:.06em;
+    opacity:0;transition:opacity 1.2s ease;z-index:10;pointer-events:none;
+    white-space:nowrap;
+  }
+  #guide.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="overlay">
+  <div id="title">避けるわたし</div>
+  <div id="desc">
+    ノイズを倒すのではなく、避ける。<br>
+    崩れに触れすぎず、わたしを保ってください。<br><br>
+    CLICK TO START
+  </div>
+</div>
+
+<div id="ui">
+  <div id="line">
+    <span id="state">わたしを保つ</span>
+    <span id="timeText">0.0 / 60.0 秒</span>
+  </div>
+  <div id="barWrap"><div id="lifeBar"></div></div>
+  <div id="timeWrap"><div id="timeBar"></div></div>
+</div>
+
+<div id="msg"></div>
+<div id="guide">マウスで移動 / ノイズに触れると崩れる / 60秒保つ</div>
+<canvas id="c"></canvas>
+
+<script>
+const canvas=document.getElementById("c");
+const ctx=canvas.getContext("2d");
+const overlay=document.getElementById("overlay");
+const ui=document.getElementById("ui");
+const msgEl=document.getElementById("msg");
+const guide=document.getElementById("guide");
+const stateEl=document.getElementById("state");
+const timeText=document.getElementById("timeText");
+const lifeBar=document.getElementById("lifeBar");
+const timeBar=document.getElementById("timeBar");
+
+let w,h;
+function resize(){w=canvas.width=innerWidth;h=canvas.height=innerHeight;}
+resize(); addEventListener("resize",resize);
+
+let isStarted=false;
+let isEnded=false;
+let canReset=false;
+let isClear=false;
+
+let player={x:w/2,y:h/2,vx:0,vy:0,r:11};
+let target={x:w/2,y:h/2};
+let noises=[];
+let particles=[];
+
+let life=1;
+let elapsed=0;
+const GOAL_TIME=60;
+let lastTime=performance.now();
+let damageFlash=0;
+
+let audioCtx=null, osc1=null, osc2=null, gain=null, filter=null;
+
+function showMsg(t,d=1800){
+  msgEl.textContent=t;
+  msgEl.classList.add("show");
+  clearTimeout(showMsg.timer);
+  showMsg.timer=setTimeout(()=>msgEl.classList.remove("show"),d);
+}
+
+function initAudio(){
+  if(audioCtx)return;
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  osc1=audioCtx.createOscillator();
+  osc2=audioCtx.createOscillator();
+  gain=audioCtx.createGain();
+  filter=audioCtx.createBiquadFilter();
+
+  osc1.type="sine";
+  osc2.type="triangle";
+  filter.type="lowpass";
+  osc1.frequency.setValueAtTime(120,audioCtx.currentTime);
+  osc2.frequency.setValueAtTime(121,audioCtx.currentTime);
+  filter.frequency.setValueAtTime(600,audioCtx.currentTime);
+  gain.gain.setValueAtTime(0,audioCtx.currentTime);
+
+  osc1.connect(filter); osc2.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+  osc1.start(); osc2.start();
+}
+
+function updateAudio(threat){
+  if(!audioCtx)return;
+  let base=isClear?180:110+elapsed*1.2;
+  let beat=1.4+threat*18+(1-life)*10;
+  let vol=isEnded ? 0.08 : 0.035+threat*0.04+(1-life)*0.035;
+  let cutoff=isClear?1500:500+life*900+threat*500;
+
+  if(!isStarted)vol=0;
+  if(!isClear && isEnded){base=70; beat=22; vol=0.06; cutoff=500;}
+
+  osc1.frequency.setTargetAtTime(base,audioCtx.currentTime,.08);
+  osc2.frequency.setTargetAtTime(base+beat,audioCtx.currentTime,.08);
+  filter.frequency.setTargetAtTime(cutoff,audioCtx.currentTime,.08);
+  gain.gain.setTargetAtTime(vol,audioCtx.currentTime,.12);
+}
+
+function spawnNoise(force=false){
+  const edge=Math.floor(Math.random()*4);
+  let x,y;
+  if(edge===0){x=-20;y=Math.random()*h}
+  else if(edge===1){x=w+20;y=Math.random()*h}
+  else if(edge===2){x=Math.random()*w;y=-20}
+  else{x=Math.random()*w;y=h+20}
+
+  const angle=Math.atan2(h/2-y,w/2-x)+(Math.random()-.5)*1.5;
+  const speed=0.9+Math.random()*1.35+Math.min(1.5,elapsed/40);
+  noises.push({
+    x,y,
+    vx:Math.cos(angle)*speed,
+    vy:Math.sin(angle)*speed,
+    r:8+Math.random()*8,
+    pulse:Math.random()*Math.PI*2,
+    touched:false
+  });
+}
+
+function spawnParticle(x,y,count=8){
+  for(let i=0;i<count;i++){
+    particles.push({
+      x,y,
+      vx:(Math.random()-.5)*4,
+      vy:(Math.random()-.5)*4,
+      life:1,
+      r:1+Math.random()*2
+    });
+  }
+}
+
+function resetGame(){
+  isEnded=false; canReset=false; isClear=false;
+  life=1; elapsed=0; damageFlash=0;
+  player={x:w/2,y:h/2,vx:0,vy:0,r:11};
+  target={x:w/2,y:h/2};
+  noises=[]; particles=[];
+  for(let i=0;i<7;i++)spawnNoise(true);
+  ctx.fillStyle="rgba(0,0,0,.96)";
+  ctx.fillRect(0,0,w,h);
+  showMsg("もう一度、保つ",1800);
+}
+
+function endGame(clear){
+  if(isEnded)return;
+  isEnded=true;
+  isClear=clear;
+  canReset=false;
+
+  if(clear){
+    showMsg("わたしは保たれた",4200);
+    ctx.fillStyle="rgba(255,255,255,.86)";
+    ctx.fillRect(0,0,w,h);
+  }else{
+    showMsg("崩れた",3600);
+    ctx.fillStyle="rgba(255,0,0,.22)";
+    ctx.fillRect(0,0,w,h);
+  }
+
+  setTimeout(()=>{
+    canReset=true;
+    showMsg("もう一度",2400);
+  },4300);
+}
+
+function update(dt){
+  if(!isStarted)return;
+
+  if(!isEnded){
+    elapsed+=dt;
+
+    // 遅れて追従。完全には思い通りにならない。
+    player.vx+=(target.x-player.x)*0.19;
+    player.vy+=(target.y-player.y)*0.19;
+    player.vx*=0.63;
+    player.vy*=0.63;
+    player.x+=player.vx;
+    player.y+=player.vy;
+
+    // 境界で押し戻す
+    player.x=Math.max(player.r,Math.min(w-player.r,player.x));
+    player.y=Math.max(player.r,Math.min(h-player.r,player.y));
+
+    const targetCount=7+Math.floor(elapsed/8);
+    while(noises.length<targetCount)spawnNoise();
+
+    let threat=0;
+
+    noises.forEach(n=>{
+      n.pulse+=dt*4;
+      n.x+=n.vx;
+      n.y+=n.vy;
+
+      // 少しだけプレイヤー方向に漂う
+      const dxp=player.x-n.x, dyp=player.y-n.y;
+      const d=Math.sqrt(dxp*dxp+dyp*dyp)||1;
+      n.vx+=dxp/d*0.006;
+      n.vy+=dyp/d*0.006;
+      n.vx*=1.001;
+      n.vy*=1.001;
+
+      if(n.x<-60||n.x>w+60||n.y<-60||n.y>h+60){
+        n.x=Math.random()*w;
+        n.y=Math.random()*h;
+        n.vx=(Math.random()-.5)*2.4;
+        n.vy=(Math.random()-.5)*2.4;
+      }
+
+      const dx=player.x-n.x, dy=player.y-n.y;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      const danger=Math.max(0,1-dist/95);
+      threat=Math.max(threat,danger);
+
+      if(dist<n.r+player.r){
+        life-=0.22*dt;
+        damageFlash=Math.min(1,damageFlash+0.08);
+        if(!n.touched){
+          n.touched=true;
+          spawnParticle(player.x,player.y,12);
+          showMsg("触れすぎない",900);
+        }
+      }else{
+        n.touched=false;
+      }
+    });
+
+    life=Math.max(0,Math.min(1,life+0.018*dt)); // ほんの少し自然回復
+    if(life<=0)endGame(false);
+    if(elapsed>=GOAL_TIME)endGame(true);
+
+    updateAudio(threat);
+  }else{
+    updateAudio(isClear?0.1:0.7);
+  }
+
+  particles.forEach(p=>{
+    p.x+=p.vx; p.y+=p.vy;
+    p.vx*=0.94; p.vy*=0.94;
+    p.life-=dt*1.8;
+  });
+  particles=particles.filter(p=>p.life>0);
+
+  damageFlash=Math.max(0,damageFlash-dt*1.7);
+  updateUI();
+}
+
+function updateUI(){
+  const lifePct=Math.round(life*100);
+  lifeBar.style.width=lifePct+"%";
+  timeBar.style.width=Math.min(100,elapsed/GOAL_TIME*100)+"%";
+  timeText.textContent=`${Math.min(elapsed,GOAL_TIME).toFixed(1)} / ${GOAL_TIME.toFixed(1)} 秒`;
+
+  if(isClear){
+    stateEl.textContent="保たれた";
+    lifeBar.style.background="rgba(255,255,255,.78)";
+  }else if(isEnded){
+    stateEl.textContent="崩れた";
+    lifeBar.style.background="rgba(255,100,120,.72)";
+  }else if(life<0.35){
+    stateEl.textContent="崩れかけている";
+    lifeBar.style.background="rgba(255,120,140,.76)";
+  }else if(elapsed>40){
+    stateEl.textContent="まだ保つ";
+    lifeBar.style.background="rgba(0,255,255,.66)";
+  }else{
+    stateEl.textContent="わたしを保つ";
+    lifeBar.style.background="rgba(0,255,255,.62)";
+  }
+}
+
+function draw(){
+  const fade=isClear ? .11 : isEnded ? .19 : .22;
+  ctx.fillStyle=`rgba(0,0,0,${fade})`;
+  ctx.fillRect(0,0,w,h);
+
+  // 近づくノイズの場
+  noises.forEach(n=>{
+    const pulse=Math.sin(n.pulse)*2;
+    ctx.beginPath();
+    ctx.arc(n.x,n.y,n.r+pulse,0,Math.PI*2);
+    ctx.fillStyle=n.touched?"rgba(255,40,70,.70)":"rgba(255,80,90,.48)";
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(n.x,n.y,n.r+14+pulse,0,Math.PI*2);
+    ctx.strokeStyle="rgba(255,80,90,.10)";
+    ctx.lineWidth=1;
+    ctx.stroke();
+  });
+
+  // 破片
+  particles.forEach(p=>{
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,180,190,${p.life*.55})`;
+    ctx.fill();
+  });
+
+  // プレイヤーの保護膜
+  ctx.beginPath();
+  ctx.arc(player.x,player.y,player.r+13+Math.sin(performance.now()*.004)*2,0,Math.PI*2);
+  ctx.strokeStyle=`rgba(0,255,255,${0.10+life*.12})`;
+  ctx.lineWidth=1;
+  ctx.stroke();
+
+  // プレイヤー
+  ctx.beginPath();
+  ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
+  ctx.fillStyle=isClear?"rgba(255,255,255,.92)":life<0.35?"rgba(255,150,160,.88)":"rgba(0,255,255,.88)";
+  ctx.fill();
+
+  if(damageFlash>0){
+    ctx.fillStyle=`rgba(255,0,30,${damageFlash*.16})`;
+    ctx.fillRect(0,0,w,h);
+  }
+
+  if(isClear){
+    ctx.beginPath();
+    ctx.arc(player.x,player.y,44+Math.sin(performance.now()*.002)*5,0,Math.PI*2);
+    ctx.strokeStyle="rgba(255,255,255,.16)";
+    ctx.lineWidth=1;
+    ctx.stroke();
+  }
+}
+
+function loop(now){
+  const dt=Math.min(.05,(now-lastTime)/1000);
+  lastTime=now;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+addEventListener("mousemove",e=>{
+  target.x=e.clientX;
+  target.y=e.clientY;
+});
+
+addEventListener("mousedown",()=>{
+  if(isEnded && canReset){
+    resetGame();
+  }
+});
+
+addEventListener("keydown",()=>{
+  if(isEnded && canReset){
+    resetGame();
+  }
+});
+
+overlay.onclick=()=>{
+  isStarted=true;
+  overlay.classList.add("hidden");
+  ui.classList.add("show");
+  guide.classList.add("show");
+  initAudio();
+  resetGame();
+  showMsg("避けるのではなく、保つ",2200);
+  setTimeout(()=>guide.classList.remove("show"),7000);
+};
+</script>
+</body>
+</html>

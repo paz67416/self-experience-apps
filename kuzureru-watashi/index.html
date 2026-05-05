@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>崩れるわたし - Agency Collapse</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+    }
+
+    #gameCanvas {
+      display: block;
+      cursor: none;
+    }
+
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: rgba(255,255,255,0.42);
+      background: black;
+      z-index: 10;
+      cursor: pointer;
+      transition: opacity 1s ease;
+      letter-spacing: 0.08em;
+      font-size: 15px;
+    }
+
+    #overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #message {
+      position: absolute;
+      left: 50%;
+      bottom: 9%;
+      transform: translateX(-50%);
+      color: rgba(255,255,255,0.45);
+      font-size: 14px;
+      letter-spacing: 0.08em;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+      pointer-events: none;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    #message.show {
+      opacity: 1;
+    }
+
+    #hint {
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255,255,255,0.22);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 1.5s ease;
+    }
+
+    #hint.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="overlay">CLICK TO START</div>
+  <div id="hint">動かす / クリックする / ときどき止まる</div>
+  <div id="message"></div>
+  <canvas id="gameCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const overlay = document.getElementById("overlay");
+    const message = document.getElementById("message");
+    const hint = document.getElementById("hint");
+
+    let width, height;
+    let particles = [];
+    const PARTICLE_COUNT = 260;
+
+    let syncRate = 0;
+    let isStarted = false;
+    let isLocked = false;
+    let isCollapsed = false;
+    let collapseTriggered = false;
+
+    let inputHistory = [];
+    const MAX_HISTORY = 70;
+    let lastInputTime = Date.now();
+
+    let mouseX = 0;
+    let mouseY = 0;
+    let targetMouseX = 0;
+    let targetMouseY = 0;
+
+    let audioCtx = null;
+    let oscillator = null;
+    let secondOscillator = null;
+    let gainNode = null;
+
+    function setMessage(text, duration = 3500) {
+      message.textContent = text;
+      message.classList.add("show");
+      clearTimeout(setMessage.timer);
+      setMessage.timer = setTimeout(() => {
+        message.classList.remove("show");
+      }, duration);
+    }
+
+    class Particle {
+      constructor() {
+        this.init();
+      }
+
+      init() {
+        this.x = Math.random() * window.innerWidth;
+        this.y = Math.random() * window.innerHeight;
+        this.vx = (Math.random() - 0.5) * 2;
+        this.vy = (Math.random() - 0.5) * 2;
+        this.radius = Math.random() * 1.5 + 0.4;
+        this.color = "rgba(255,255,255,0.25)";
+      }
+
+      update() {
+        let dx = mouseX - this.x;
+        let dy = mouseY - this.y;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (isCollapsed) {
+          // 崩壊状態：かつて整ったものがばらける
+          this.vx += (Math.random() - 0.5) * 4.2;
+          this.vy += (Math.random() - 0.5) * 4.2;
+          this.vx -= dx * 0.0008;
+          this.vy -= dy * 0.0008;
+          this.color = `rgba(255, ${70 + Math.random() * 80}, ${90 + Math.random() * 90}, ${0.22 + Math.random() * 0.35})`;
+          this.radius = 0.6 + Math.random() * 2.2;
+        } else if (isLocked) {
+          // 主体成立状態：自分の入力に世界がまとまっていく
+          let force = Math.max(0, (520 - dist) / 520);
+          this.vx += dx * 0.028 * force;
+          this.vy += dy * 0.028 * force;
+          this.color = `rgba(0,255,255,${0.35 + force * 0.45})`;
+          this.radius = 1 + force * 2.4;
+        } else {
+          // 形成途中：少しずつ影響が増す
+          let influence = Math.pow(syncRate, 3) * 0.16;
+          if (dist < 420) {
+            this.vx += dx * influence * (Math.random() * 0.11);
+            this.vy += dy * influence * (Math.random() * 0.11);
+          }
+
+          let r = 255;
+          let g = 255 - syncRate * 160;
+          let b = 255;
+          this.color = `rgba(${r},${g},${b},${0.14 + syncRate * 0.52})`;
+          this.radius = 0.6 + syncRate * 1.4;
+        }
+
+        this.vx *= isCollapsed ? 0.91 : 0.94;
+        this.vy *= isCollapsed ? 0.91 : 0.94;
+
+        let noise = isCollapsed ? 2.4 : (1 - syncRate) * 1.15;
+        this.vx += (Math.random() - 0.5) * noise;
+        this.vy += (Math.random() - 0.5) * noise;
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        if (this.x < 0) this.x = width;
+        if (this.x > width) this.x = 0;
+        if (this.y < 0) this.y = height;
+        if (this.y > height) this.y = 0;
+      }
+
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+      }
+    }
+
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+
+    function initAudio() {
+      if (audioCtx) return;
+
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      oscillator = audioCtx.createOscillator();
+      secondOscillator = audioCtx.createOscillator();
+      gainNode = audioCtx.createGain();
+
+      oscillator.type = "sine";
+      secondOscillator.type = "triangle";
+
+      oscillator.frequency.setValueAtTime(70, audioCtx.currentTime);
+      secondOscillator.frequency.setValueAtTime(71, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+
+      oscillator.connect(gainNode);
+      secondOscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscillator.start();
+      secondOscillator.start();
+    }
+
+    function updateAudio() {
+      if (!audioCtx) return;
+
+      if (isCollapsed) {
+        const unstable = 40 + Math.random() * 260;
+        oscillator.frequency.setTargetAtTime(unstable, audioCtx.currentTime, 0.035);
+        secondOscillator.frequency.setTargetAtTime(unstable * (0.99 + Math.random() * 0.05), audioCtx.currentTime, 0.035);
+        gainNode.gain.setTargetAtTime(0.06 + Math.random() * 0.04, audioCtx.currentTime, 0.05);
+        return;
+      }
+
+      const freq = 70 + syncRate * 330;
+      const beatOffset = isLocked ? 1.7 : 0.6 + syncRate * 2.0;
+      const vol = isLocked ? 0.13 : syncRate * 0.09;
+
+      oscillator.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
+      secondOscillator.frequency.setTargetAtTime(freq + beatOffset, audioCtx.currentTime, 0.1);
+      gainNode.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.1);
+    }
+
+    function recordInput(type) {
+      if (!isStarted || isCollapsed) return;
+
+      const now = Date.now();
+      lastInputTime = now;
+
+      inputHistory.push({ type, time: now });
+      if (inputHistory.length > MAX_HISTORY) inputHistory.shift();
+
+      if (type === "click") syncRate = Math.min(syncRate + 0.055, 1.0);
+      if (type === "key") syncRate = Math.min(syncRate + 0.035, 1.0);
+      if (type === "move") syncRate = Math.min(syncRate + 0.0007, 1.0);
+
+      // 入力しすぎると、主体が過剰制御で崩れ始める
+      const recent = inputHistory.filter(i => now - i.time < 1200).length;
+      if (isLocked && recent > 38) {
+        syncRate -= 0.035;
+      }
+
+      if (syncRate >= 1.0 && !isLocked) {
+        isLocked = true;
+        syncRate = 1.0;
+        triggerAgency();
+      }
+    }
+
+    function triggerAgency() {
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.fillRect(0, 0, width, height);
+      setMessage("わたしが成立した", 3000);
+      console.log("Agency Established.");
+    }
+
+    function triggerCollapse(reason) {
+      if (collapseTriggered) return;
+      collapseTriggered = true;
+      isCollapsed = true;
+      isLocked = false;
+
+      ctx.fillStyle = "rgba(255,0,0,0.28)";
+      ctx.fillRect(0, 0, width, height);
+
+      if (reason === "silence") {
+        setMessage("保たれなかったわたし", 5200);
+      } else {
+        setMessage("強く握りすぎて、わたしは崩れた", 5200);
+      }
+
+      console.log("Agency Lost.");
+    }
+
+    function updateState() {
+      if (!isStarted || isCollapsed) return;
+
+      const now = Date.now();
+      const idleTime = now - lastInputTime;
+      const recent = inputHistory.filter(i => now - i.time < 1200).length;
+
+      if (isLocked) {
+        // 成立後は、入力が止まりすぎても、入力が過剰でも崩れる
+        if (idleTime > 2300) {
+          syncRate -= 0.008;
+        } else {
+          syncRate -= 0.0012;
+        }
+
+        if (recent > 42) {
+          syncRate -= 0.018;
+        }
+
+        if (syncRate < 0.42 && idleTime > 1500) {
+          triggerCollapse("silence");
+        }
+
+        if (syncRate < 0.28 && recent > 30) {
+          triggerCollapse("excess");
+        }
+      } else {
+        // 形成前はわずかに戻る
+        syncRate *= 0.998;
+      }
+
+      syncRate = Math.max(0, Math.min(syncRate, 1));
+    }
+
+    function animate() {
+      const fade = isCollapsed ? 0.13 : 0.2;
+      ctx.fillStyle = `rgba(0,0,0,${fade})`;
+      ctx.fillRect(0, 0, width, height);
+
+      updateState();
+
+      const lerpFactor = isCollapsed
+        ? 0.04
+        : isLocked
+          ? 0.25
+          : 0.003 + Math.pow(syncRate, 2) * 0.12;
+
+      mouseX += (targetMouseX - mouseX) * lerpFactor;
+      mouseY += (targetMouseY - mouseY) * lerpFactor;
+
+      for (const p of particles) {
+        p.update();
+        p.draw();
+      }
+
+      if (isStarted) updateAudio();
+
+      requestAnimationFrame(animate);
+    }
+
+    function init() {
+      resize();
+      particles = [];
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particles.push(new Particle());
+      }
+      mouseX = width / 2;
+      mouseY = height / 2;
+      targetMouseX = mouseX;
+      targetMouseY = mouseY;
+      animate();
+    }
+
+    overlay.addEventListener("click", () => {
+      isStarted = true;
+      lastInputTime = Date.now();
+      overlay.classList.add("hidden");
+      hint.classList.add("show");
+      initAudio();
+      setTimeout(() => hint.classList.remove("show"), 6500);
+    });
+
+    window.addEventListener("mousemove", e => {
+      targetMouseX = e.clientX;
+      targetMouseY = e.clientY;
+      recordInput("move");
+    });
+
+    window.addEventListener("mousedown", () => recordInput("click"));
+    window.addEventListener("keydown", () => recordInput("key"));
+    window.addEventListener("resize", resize);
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>追いつけないわたし - Layered Delay</title>
+<style>
+  *{box-sizing:border-box}
+  body,html{
+    margin:0;padding:0;width:100%;height:100%;
+    background:#000;overflow:hidden;font-family:"Helvetica Neue",Arial,sans-serif;
+    user-select:none;
+  }
+  canvas{display:block;cursor:none}
+  #overlay{
+    position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;background:#000;color:rgba(255,255,255,.72);
+    cursor:pointer;transition:opacity 1s ease;z-index:10;text-align:center;letter-spacing:.08em;
+  }
+  #overlay.hidden{opacity:0;pointer-events:none}
+  #title{font-size:28px;font-weight:300;margin-bottom:16px}
+  #desc{font-size:13px;line-height:1.9;color:rgba(255,255,255,.42)}
+  #ui{
+    position:absolute;top:18px;left:50%;transform:translateX(-50%);
+    width:min(560px,calc(100vw - 34px));opacity:0;transition:opacity 1s ease;z-index:5;
+    pointer-events:none;
+  }
+  #ui.show{opacity:1}
+  #line{display:flex;justify-content:space-between;color:rgba(255,255,255,.38);font-size:12px;letter-spacing:.06em;margin-bottom:8px}
+  #barwrap{height:10px;border:1px solid rgba(255,255,255,.18);border-radius:999px;overflow:hidden;background:rgba(255,255,255,.04)}
+  #bar{height:100%;width:0%;background:rgba(0,255,255,.62);border-radius:999px;transition:width .08s linear}
+  #msg{
+    position:absolute;bottom:10%;left:50%;transform:translateX(-50%);
+    color:rgba(255,255,255,.50);font-size:14px;letter-spacing:.08em;z-index:5;
+    opacity:0;transition:opacity .8s ease;white-space:nowrap;pointer-events:none;
+  }
+  #msg.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="overlay">
+  <div id="title">追いつけないわたし</div>
+  <div id="desc">
+    今の自分と、少し前の自分。<br>
+    過去の重なりに合わせてください。<br><br>
+    CLICK TO START
+  </div>
+</div>
+
+<div id="ui">
+  <div id="line">
+    <span id="state">遅れを感じる</span>
+    <span id="score">一致 0.0 / 6.0 秒</span>
+  </div>
+  <div id="barwrap"><div id="bar"></div></div>
+</div>
+
+<div id="msg"></div>
+<canvas id="c"></canvas>
+
+<script>
+const canvas=document.getElementById("c");
+const ctx=canvas.getContext("2d");
+const overlay=document.getElementById("overlay");
+const ui=document.getElementById("ui");
+const msgEl=document.getElementById("msg");
+const stateEl=document.getElementById("state");
+const scoreEl=document.getElementById("score");
+const barEl=document.getElementById("bar");
+
+let w,h;
+function resize(){w=canvas.width=innerWidth;h=canvas.height=innerHeight;}
+resize(); addEventListener("resize",resize);
+
+let isStarted=false;
+let isClear=false;
+let canReset=false;
+
+let player={x:w/2,y:h/2,vx:0,vy:0};
+let target={x:w/2,y:h/2};
+let history=[];
+let maxHistory=180;
+
+let ghosts=[
+  {delay:24,x:w/2,y:h/2,r:10,a:.30},
+  {delay:48,x:w/2,y:h/2,r:13,a:.22},
+  {delay:82,x:w/2,y:h/2,r:17,a:.14}
+];
+
+let baseDelay=48;
+let delayWave=0;
+let matchTime=0;
+const CLEAR_TIME=6.0;
+let lastTime=performance.now();
+
+let audioCtx=null, osc1=null, osc2=null, gain=null;
+
+function showMsg(t,d=1600){
+  msgEl.textContent=t;
+  msgEl.classList.add("show");
+  clearTimeout(showMsg.timer);
+  showMsg.timer=setTimeout(()=>msgEl.classList.remove("show"),d);
+}
+
+function initAudio(){
+  if(audioCtx)return;
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  osc1=audioCtx.createOscillator();
+  osc2=audioCtx.createOscillator();
+  gain=audioCtx.createGain();
+  osc1.type="sine";
+  osc2.type="sine";
+  osc1.frequency.setValueAtTime(160,audioCtx.currentTime);
+  osc2.frequency.setValueAtTime(163,audioCtx.currentTime);
+  gain.gain.setValueAtTime(0,audioCtx.currentTime);
+  osc1.connect(gain); osc2.connect(gain); gain.connect(audioCtx.destination);
+  osc1.start(); osc2.start();
+}
+
+function updateAudio(avgDist){
+  if(!audioCtx)return;
+  // 距離がズレるほど、うねりが大きくなる
+  const mismatch=Math.min(1,avgDist/160);
+  const beat=1.5+mismatch*18;
+  const base=isClear?190:150+Math.max(0,1-mismatch)*80;
+  osc1.frequency.setTargetAtTime(base,audioCtx.currentTime,.08);
+  osc2.frequency.setTargetAtTime(base+beat,audioCtx.currentTime,.08);
+  gain.gain.setTargetAtTime(isStarted ? (isClear?.10:.035+mismatch*.045) : 0,audioCtx.currentTime,.1);
+}
+
+function resetGame(){
+  isClear=false; canReset=false;
+  player={x:w/2,y:h/2,vx:0,vy:0};
+  target={x:w/2,y:h/2};
+  history=[];
+  ghosts.forEach(g=>{g.x=w/2;g.y=h/2});
+  matchTime=0;
+  showMsg("また遅れがはじまる",1800);
+}
+
+function sampleHistory(delay){
+  const idx=Math.max(0,history.length-1-Math.round(delay));
+  return history[idx] || {x:player.x,y:player.y};
+}
+
+function update(dt){
+  if(!isStarted)return;
+
+  // プレイヤーも少しだけ遅れて追従。完全な現在ではない。
+  player.vx+=(target.x-player.x)*0.20;
+  player.vy+=(target.y-player.y)*0.20;
+  player.vx*=0.62;
+  player.vy*=0.62;
+  player.x+=player.vx;
+  player.y+=player.vy;
+
+  history.push({x:player.x,y:player.y});
+  if(history.length>maxHistory)history.shift();
+
+  // 遅延がゆらぐ。不安定な「過去」になる。
+  delayWave+=dt;
+  const unstable=Math.sin(delayWave*1.7)*10 + Math.sin(delayWave*0.43)*18;
+  baseDelay=48+unstable;
+
+  ghosts[0].delay=Math.max(10,baseDelay*.55);
+  ghosts[1].delay=Math.max(20,baseDelay);
+  ghosts[2].delay=Math.max(34,baseDelay*1.65);
+
+  let avgDist=0;
+  ghosts.forEach((g,i)=>{
+    const p=sampleHistory(g.delay);
+    g.x+=(p.x-g.x)*(0.28-i*.05);
+    g.y+=(p.y-g.y)*(0.28-i*.05);
+    const dx=player.x-g.x, dy=player.y-g.y;
+    avgDist+=Math.sqrt(dx*dx+dy*dy);
+  });
+  avgDist/=ghosts.length;
+
+  const match=avgDist<32;
+  if(match && !isClear){
+    matchTime+=dt;
+    if(Math.abs(matchTime-2.0)<dt)showMsg("過去が近づく");
+    if(Math.abs(matchTime-4.0)<dt)showMsg("動かさないことで重なる");
+  }else if(!isClear){
+    matchTime=Math.max(0,matchTime-dt*1.7);
+  }
+
+  if(matchTime>=CLEAR_TIME && !isClear){
+    isClear=true;
+    canReset=false;
+    matchTime=CLEAR_TIME;
+    showMsg("追いつけないまま、一致した",4200);
+    setTimeout(()=>{
+      if(isClear){canReset=true;showMsg("もう一度",2400);}
+    },4600);
+  }
+
+  updateAudio(avgDist);
+
+  const pct=Math.min(100,matchTime/CLEAR_TIME*100);
+  barEl.style.width=pct+"%";
+  scoreEl.textContent=`一致 ${matchTime.toFixed(1)} / ${CLEAR_TIME.toFixed(1)} 秒`;
+  stateEl.textContent=isClear?"一致":match?"重なりつつある":"追いつけない";
+}
+
+function draw(){
+  ctx.fillStyle=isClear?"rgba(0,0,0,.12)":"rgba(0,0,0,.20)";
+  ctx.fillRect(0,0,w,h);
+
+  // 軌跡
+  if(history.length>2){
+    ctx.beginPath();
+    for(let i=0;i<history.length;i+=5){
+      const p=history[i];
+      if(i===0)ctx.moveTo(p.x,p.y);
+      else ctx.lineTo(p.x,p.y);
+    }
+    ctx.strokeStyle="rgba(255,255,255,.06)";
+    ctx.lineWidth=1;
+    ctx.stroke();
+  }
+
+  // 複数ゴースト：過去の重なり
+  ghosts.slice().reverse().forEach((g,idx)=>{
+    ctx.beginPath();
+    ctx.arc(g.x,g.y,g.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,255,255,${g.a})`;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(g.x,g.y,g.r+8,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(255,255,255,${g.a*.28})`;
+    ctx.lineWidth=1;
+    ctx.stroke();
+  });
+
+  // player
+  ctx.beginPath();
+  ctx.arc(player.x,player.y,isClear?13:10,0,Math.PI*2);
+  ctx.fillStyle=isClear?"rgba(255,255,255,.9)":"rgba(0,255,255,.85)";
+  ctx.fill();
+
+  if(isClear){
+    ctx.beginPath();
+    ctx.arc(player.x,player.y,34+Math.sin(performance.now()*.003)*4,0,Math.PI*2);
+    ctx.strokeStyle="rgba(255,255,255,.18)";
+    ctx.lineWidth=1;
+    ctx.stroke();
+  }
+}
+
+function loop(now){
+  const dt=Math.min(.05,(now-lastTime)/1000);
+  lastTime=now;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+addEventListener("mousemove",e=>{
+  target.x=e.clientX;
+  target.y=e.clientY;
+});
+
+addEventListener("mousedown",()=>{
+  if(isClear && canReset){resetGame();return;}
+});
+
+addEventListener("keydown",()=>{
+  if(isClear && canReset){resetGame();return;}
+});
+
+overlay.onclick=()=>{
+  isStarted=true;
+  overlay.classList.add("hidden");
+  ui.classList.add("show");
+  initAudio();
+  showMsg("遅れに合わせる",1800);
+};
+</script>
+</body>
+</html>

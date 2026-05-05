@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resonance - Emergent Agency</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        #gameCanvas {
+            display: block;
+            cursor: none;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: rgba(255, 255, 255, 0.3);
+            background: black;
+            z-index: 10;
+            cursor: pointer;
+            transition: opacity 1s ease;
+        }
+
+        #overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="overlay">CLICK TO START</div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('overlay');
+
+        let width, height;
+        let particles = [];
+        const PARTICLE_COUNT = 250;
+
+        let syncRate = 0; 
+        let isLocked = false;
+        let inputHistory = [];
+        const MAX_HISTORY = 50;
+        let audioCtx = null;
+        let oscillator = null;
+        let gainNode = null;
+        let isStarted = false;
+
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetMouseX = 0;
+        let targetMouseY = 0;
+
+        class Particle {
+            constructor() {
+                this.init();
+            }
+
+            init() {
+                this.x = Math.random() * window.innerWidth;
+                this.y = Math.random() * window.innerHeight;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.radius = Math.random() * 1.5 + 0.5;
+                this.color = 'rgba(255, 255, 255, 0.3)';
+            }
+
+            update() {
+                if (isLocked) {
+                    let dx = mouseX - this.x;
+                    let dy = mouseY - this.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+                    let force = Math.max(0, (500 - dist) / 500);
+                    this.vx += dx * 0.03 * force;
+                    this.vy += dy * 0.03 * force;
+                    this.color = `rgba(0, 255, 255, ${0.4 + force * 0.4})`;
+                    this.radius = 1 + force * 2;
+                } else {
+                    let dx = mouseX - this.x;
+                    let dy = mouseY - this.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    let influence = Math.pow(syncRate, 3) * 0.15;
+                    if (dist < 400) {
+                        this.vx += dx * influence * (Math.random() * 0.1);
+                        this.vy += dy * influence * (Math.random() * 0.1);
+                    }
+
+                    let r = 255;
+                    let g = 255 - (syncRate * 150);
+                    let b = 255;
+                    this.color = `rgba(${r}, ${g}, ${b}, ${0.15 + syncRate * 0.5})`;
+                }
+
+                this.vx *= 0.94;
+                this.vy *= 0.94;
+
+                let noise = (1 - syncRate) * 1.2;
+                this.vx += (Math.random() - 0.5) * noise;
+                this.vy += (Math.random() - 0.5) * noise;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x < 0) this.x = width;
+                if (this.x > width) this.x = 0;
+                if (this.y < 0) this.y = height;
+                if (this.y > height) this.y = 0;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            oscillator = audioCtx.createOscillator();
+            gainNode = audioCtx.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(80, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start();
+        }
+
+        function updateAudio() {
+            if (!audioCtx) return;
+            let freq = 80 + syncRate * 320;
+            let vol = isLocked ? 0.15 : syncRate * 0.1;
+            oscillator.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
+            gainNode.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.1);
+        }
+
+        function init() {
+            resize();
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                particles.push(new Particle());
+            }
+            animate();
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.fillRect(0, 0, width, height);
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            let lerpFactor = isLocked ? 0.25 : (0.003 + Math.pow(syncRate, 2) * 0.12);
+            mouseX += (targetMouseX - mouseX) * lerpFactor;
+            mouseY += (targetMouseY - mouseY) * lerpFactor;
+
+            if (isStarted) {
+                updateAudio();
+            }
+            requestAnimationFrame(animate);
+        }
+
+        function recordInput(type) {
+            if (!isStarted) return;
+            
+            inputHistory.push({ type, time: Date.now() });
+            if (inputHistory.length > MAX_HISTORY) {
+                inputHistory.shift();
+            }
+
+            if (type === 'click') syncRate = Math.min(syncRate + 0.04, 1.0);
+            if (type === 'key') syncRate = Math.min(syncRate + 0.02, 1.0);
+            if (type === 'move') syncRate = Math.min(syncRate + 0.0005, 1.0);
+
+            if (syncRate >= 1.0 && !isLocked) {
+                isLocked = true;
+                triggerFinalState();
+            }
+        }
+
+        function triggerFinalState() {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, width, height);
+            console.log("Agency Established.");
+        }
+
+        overlay.addEventListener('click', () => {
+            isStarted = true;
+            overlay.classList.add('hidden');
+            initAudio();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            targetMouseX = e.clientX;
+            targetMouseY = e.clientY;
+            recordInput('move');
+        });
+
+        window.addEventListener('mousedown', () => recordInput('click'));
+        window.addEventListener('keydown', () => recordInput('key'));
+        window.addEventListener('resize', resize);
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ちょうどいいわたし - Balance of Agency</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      user-select: none;
+    }
+
+    #gameCanvas {
+      display: block;
+      cursor: none;
+    }
+
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: #000;
+      color: rgba(255,255,255,0.58);
+      z-index: 20;
+      cursor: pointer;
+      transition: opacity 1s ease;
+      text-align: center;
+      letter-spacing: 0.08em;
+    }
+
+    #overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #overlayTitle {
+      font-size: 28px;
+      margin-bottom: 18px;
+      color: rgba(255,255,255,0.78);
+      font-weight: 300;
+    }
+
+    #overlayText {
+      font-size: 13px;
+      line-height: 1.9;
+      color: rgba(255,255,255,0.42);
+    }
+
+    #ui {
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(560px, calc(100vw - 34px));
+      z-index: 10;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+    }
+
+    #ui.show {
+      opacity: 1;
+    }
+
+    #statusLine {
+      display: flex;
+      justify-content: space-between;
+      color: rgba(255,255,255,0.38);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+    }
+
+    #barWrap {
+      position: relative;
+      height: 12px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.04);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    #idealZone {
+      position: absolute;
+      top: 0;
+      left: 45%;
+      width: 20%;
+      height: 100%;
+      background: rgba(0, 255, 255, 0.18);
+      border-left: 1px solid rgba(0,255,255,0.35);
+      border-right: 1px solid rgba(0,255,255,0.35);
+    }
+
+    #bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 0%;
+      height: 100%;
+      background: rgba(255,255,255,0.55);
+      border-radius: 999px;
+      transition: width 0.06s linear, background 0.2s linear;
+    }
+
+    #centerMessage {
+      position: absolute;
+      left: 50%;
+      bottom: 10%;
+      transform: translateX(-50%);
+      color: rgba(255,255,255,0.46);
+      font-size: 15px;
+      letter-spacing: 0.08em;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.75s ease;
+      white-space: nowrap;
+      z-index: 10;
+    }
+
+    #centerMessage.show {
+      opacity: 1;
+    }
+
+    #smallGuide {
+      position: absolute;
+      left: 50%;
+      bottom: 5%;
+      transform: translateX(-50%);
+      color: rgba(255,255,255,0.23);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      pointer-events: none;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 1.4s ease;
+      white-space: nowrap;
+    }
+
+    #smallGuide.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="overlay">
+    <div id="overlayTitle">ちょうどいいわたし</div>
+    <div id="overlayText">
+      動かしすぎても、止まりすぎても崩れる。<br>
+      ゲージを青い範囲に保ってください。<br><br>
+      CLICK TO START
+    </div>
+  </div>
+
+  <div id="ui">
+    <div id="statusLine">
+      <span id="stateText">まだ整っていない</span>
+      <span id="timerText">保持 0.0 / 12.0 秒</span>
+    </div>
+    <div id="barWrap">
+      <div id="idealZone"></div>
+      <div id="bar"></div>
+    </div>
+  </div>
+
+  <div id="centerMessage"></div>
+  <div id="smallGuide">マウス移動・クリック・キー入力で上がる / 放置で下がる</div>
+  <canvas id="gameCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const overlay = document.getElementById("overlay");
+    const ui = document.getElementById("ui");
+    const bar = document.getElementById("bar");
+    const stateText = document.getElementById("stateText");
+    const timerText = document.getElementById("timerText");
+    const centerMessage = document.getElementById("centerMessage");
+    const smallGuide = document.getElementById("smallGuide");
+
+    let width, height;
+    let particles = [];
+    const PARTICLE_COUNT = 260;
+
+    let isStarted = false;
+    let isCleared = false;
+    let canReset = false;
+    let syncRate = 0.18;
+    let holdTime = 0;
+    let lastFrameTime = performance.now();
+    let lastInputTime = performance.now();
+    let inputBurst = 0;
+
+    const OPT_MIN = 0.45;
+    const OPT_MAX = 0.65;
+    const CLEAR_TIME = 12.0;
+
+    let mouseX = 0;
+    let mouseY = 0;
+    let targetMouseX = 0;
+    let targetMouseY = 0;
+
+    let audioCtx = null;
+    let oscillator = null;
+    let gainNode = null;
+    let filterNode = null;
+
+    function showMessage(text, duration = 1300) {
+      centerMessage.textContent = text;
+      centerMessage.classList.add("show");
+      clearTimeout(showMessage.timer);
+      showMessage.timer = setTimeout(() => {
+        centerMessage.classList.remove("show");
+      }, duration);
+    }
+
+    class Particle {
+      constructor() {
+        this.init();
+      }
+
+      init() {
+        this.x = Math.random() * window.innerWidth;
+        this.y = Math.random() * window.innerHeight;
+        this.vx = (Math.random() - 0.5) * 2.2;
+        this.vy = (Math.random() - 0.5) * 2.2;
+        this.radius = Math.random() * 1.4 + 0.5;
+        this.phase = Math.random() * Math.PI * 2;
+        this.color = "rgba(255,255,255,0.25)";
+      }
+
+      update(dt) {
+        const dx = mouseX - this.x;
+        const dy = mouseY - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        const inZone = syncRate >= OPT_MIN && syncRate <= OPT_MAX;
+        const tooLow = syncRate < OPT_MIN;
+        const tooHigh = syncRate > OPT_MAX;
+
+        if (isCleared) {
+          // 成功後：全体が穏やかに中心へまとまる
+          const force = Math.max(0, (650 - dist) / 650);
+          this.vx += dx * 0.018 * force;
+          this.vy += dy * 0.018 * force;
+          this.color = `rgba(255,255,255,${0.35 + force * 0.45})`;
+          this.radius = 1.2 + force * 2.8;
+        } else if (inZone) {
+          // ちょうどいい状態：柔らかくまとまる
+          const force = Math.max(0, (520 - dist) / 520);
+          const orbit = Math.sin(this.phase + performance.now() * 0.001) * 0.012;
+          this.vx += dx * (0.010 + force * 0.022);
+          this.vy += dy * (0.010 + force * 0.022);
+          this.vx += -dy * orbit * force;
+          this.vy += dx * orbit * force;
+          this.color = `rgba(0,255,255,${0.28 + force * 0.42})`;
+          this.radius = 0.9 + force * 2.2;
+        } else if (tooHigh) {
+          // 過剰制御：震えて赤みが出る
+          const repel = Math.max(0, (380 - dist) / 380);
+          this.vx += dx * 0.008 * repel;
+          this.vy += dy * 0.008 * repel;
+          this.vx += (Math.random() - 0.5) * 2.4;
+          this.vy += (Math.random() - 0.5) * 2.4;
+          this.color = `rgba(255,${100 + Math.random() * 80},${120 + Math.random() * 70},${0.22 + Math.random() * 0.32})`;
+          this.radius = 0.7 + Math.random() * 2.2;
+        } else {
+          // 低すぎ：まだ整わない
+          const influence = Math.pow(syncRate, 2.5) * 0.055;
+          if (dist < 360) {
+            this.vx += dx * influence * Math.random();
+            this.vy += dy * influence * Math.random();
+          }
+          const opacity = 0.14 + syncRate * 0.25;
+          this.color = `rgba(255,255,255,${opacity})`;
+          this.radius = 0.5 + syncRate * 1.2;
+        }
+
+        const friction = isCleared ? 0.955 : inZone ? 0.948 : tooHigh ? 0.90 : 0.935;
+        this.vx *= friction;
+        this.vy *= friction;
+
+        const noise = isCleared ? 0.18 : inZone ? 0.32 : tooHigh ? 1.15 : 1.3 - syncRate;
+        this.vx += (Math.random() - 0.5) * noise;
+        this.vy += (Math.random() - 0.5) * noise;
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        if (this.x < 0) this.x = width;
+        if (this.x > width) this.x = 0;
+        if (this.y < 0) this.y = height;
+        if (this.y > height) this.y = 0;
+      }
+
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+      }
+    }
+
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+
+    function initAudio() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      oscillator = audioCtx.createOscillator();
+      gainNode = audioCtx.createGain();
+      filterNode = audioCtx.createBiquadFilter();
+
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(120, audioCtx.currentTime);
+
+      filterNode.type = "lowpass";
+      filterNode.frequency.setValueAtTime(420, audioCtx.currentTime);
+
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+
+      oscillator.connect(filterNode);
+      filterNode.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.start();
+    }
+
+    function updateAudio() {
+      if (!audioCtx) return;
+
+      const inZone = syncRate >= OPT_MIN && syncRate <= OPT_MAX;
+      const tooHigh = syncRate > OPT_MAX;
+
+      let freq = 90 + syncRate * 360;
+      let vol = 0.025 + syncRate * 0.07;
+      let filter = 320 + syncRate * 1200;
+
+      if (inZone) {
+        freq = 220 + Math.sin(performance.now() * 0.001) * 8;
+        vol = 0.095;
+        filter = 1400;
+      }
+
+      if (tooHigh) {
+        freq = 280 + Math.random() * 130;
+        vol = 0.055 + Math.random() * 0.03;
+        filter = 900 + Math.random() * 900;
+      }
+
+      if (isCleared) {
+        freq = 180 + Math.sin(performance.now() * 0.0008) * 5;
+        vol = 0.11;
+        filter = 1800;
+      }
+
+      oscillator.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.08);
+      filterNode.frequency.setTargetAtTime(filter, audioCtx.currentTime, 0.1);
+      gainNode.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.12);
+    }
+
+    function recordInput(type) {
+      if (!isStarted || isCleared) return;
+
+      const now = performance.now();
+      lastInputTime = now;
+
+      if (type === "move") {
+        syncRate += 0.0022;
+        inputBurst += 0.012;
+      }
+
+      if (type === "click") {
+        syncRate += 0.055;
+        inputBurst += 0.12;
+      }
+
+      if (type === "key") {
+        syncRate += 0.035;
+        inputBurst += 0.08;
+      }
+
+      syncRate = Math.min(syncRate, 1.08);
+    }
+
+    function updateGame(dt) {
+      if (!isStarted || isCleared) return;
+
+      const now = performance.now();
+      const idle = now - lastInputTime;
+
+      // 時間経過で少しずつ下がる
+      syncRate -= 0.045 * dt;
+
+      // 放置が長いとさらに下がる
+      if (idle > 900) syncRate -= 0.055 * dt;
+      if (idle > 1800) syncRate -= 0.08 * dt;
+
+      // 入力過多は過剰制御として押し戻す
+      inputBurst *= Math.pow(0.90, dt * 60);
+      if (inputBurst > 0.75) {
+        syncRate += 0.018 * dt; // 過剰方向へ振れやすくする
+      }
+      if (syncRate > 0.78) {
+        syncRate -= 0.04 * dt; // 自然に不安定化
+      }
+
+      syncRate = Math.max(0, Math.min(syncRate, 1));
+
+      const inZone = syncRate >= OPT_MIN && syncRate <= OPT_MAX;
+
+      if (inZone) {
+        holdTime += dt;
+        if (Math.abs(holdTime - 3) < dt) showMessage("そのまま");
+        if (Math.abs(holdTime - 7) < dt) showMessage("強く握りすぎない");
+      } else {
+        // 完全リセットにしない。外れるほど少し減る。
+        holdTime = Math.max(0, holdTime - dt * 1.8);
+      }
+
+      if (holdTime >= CLEAR_TIME) {
+        clearGame();
+      }
+    }
+
+    function clearGame() {
+      isCleared = true;
+      holdTime = CLEAR_TIME;
+      syncRate = 0.55;
+
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.fillRect(0, 0, width, height);
+
+      canReset = false;
+      showMessage("ちょうどいいわたしが保たれた", 4200);
+      stateText.textContent = "安定";
+      timerText.textContent = `保持 ${CLEAR_TIME.toFixed(1)} / ${CLEAR_TIME.toFixed(1)} 秒`;
+      console.log("Balanced Agency Established.");
+
+      setTimeout(() => {
+        if (isCleared) {
+          canReset = true;
+          showMessage("もう一度", 2600);
+        }
+      }, 4600);
+    }
+
+    function resetGame() {
+      isCleared = false;
+      canReset = false;
+      syncRate = 0.18;
+      holdTime = 0;
+      inputBurst = 0;
+      lastInputTime = performance.now();
+
+      mouseX = width / 2;
+      mouseY = height / 2;
+      targetMouseX = mouseX;
+      targetMouseY = mouseY;
+
+      particles.forEach(p => p.init());
+
+      ctx.fillStyle = "rgba(0,0,0,0.95)";
+      ctx.fillRect(0, 0, width, height);
+
+      showMessage("もう一度はじまる", 1800);
+    }
+
+    function updateUI() {
+      const percent = Math.round(syncRate * 100);
+      bar.style.width = `${percent}%`;
+
+      if (isCleared) {
+        bar.style.background = "rgba(255,255,255,0.75)";
+        return;
+      }
+
+      if (syncRate < OPT_MIN) {
+        stateText.textContent = "弱すぎる";
+        bar.style.background = "rgba(255,255,255,0.42)";
+      } else if (syncRate > OPT_MAX) {
+        stateText.textContent = "強すぎる";
+        bar.style.background = "rgba(255,120,140,0.72)";
+      } else {
+        stateText.textContent = "ちょうどいい";
+        bar.style.background = "rgba(0,255,255,0.68)";
+      }
+
+      timerText.textContent = `保持 ${holdTime.toFixed(1)} / ${CLEAR_TIME.toFixed(1)} 秒`;
+    }
+
+    function animate(now) {
+      const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
+      lastFrameTime = now;
+
+      const fade = isCleared ? 0.11 : syncRate > OPT_MAX ? 0.17 : syncRate >= OPT_MIN && syncRate <= OPT_MAX ? 0.14 : 0.22;
+      ctx.fillStyle = `rgba(0,0,0,${fade})`;
+      ctx.fillRect(0, 0, width, height);
+
+      const lerp = isCleared ? 0.12 : syncRate >= OPT_MIN && syncRate <= OPT_MAX ? 0.10 : syncRate > OPT_MAX ? 0.22 : 0.035;
+      mouseX += (targetMouseX - mouseX) * lerp;
+      mouseY += (targetMouseY - mouseY) * lerp;
+
+      updateGame(dt);
+
+      for (const p of particles) {
+        p.update(dt);
+        p.draw();
+      }
+
+      if (isStarted) {
+        updateUI();
+        updateAudio();
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    function init() {
+      resize();
+      mouseX = width / 2;
+      mouseY = height / 2;
+      targetMouseX = mouseX;
+      targetMouseY = mouseY;
+
+      particles = [];
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particles.push(new Particle());
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    overlay.addEventListener("click", () => {
+      isStarted = true;
+      overlay.classList.add("hidden");
+      ui.classList.add("show");
+      smallGuide.classList.add("show");
+      initAudio();
+      lastInputTime = performance.now();
+      showMessage("ちょうどよさを探す");
+      setTimeout(() => smallGuide.classList.remove("show"), 6500);
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      targetMouseX = e.clientX;
+      targetMouseY = e.clientY;
+      recordInput("move");
+    });
+
+    window.addEventListener("mousedown", () => {
+      if (isCleared && canReset) {
+        resetGame();
+        return;
+      }
+      recordInput("click");
+    });
+    window.addEventListener("keydown", () => recordInput("key"));
+    window.addEventListener("resize", resize);
+
+    init();
+  </script>
+</body>
+</html>

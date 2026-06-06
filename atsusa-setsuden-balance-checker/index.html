@@ -325,7 +325,7 @@
       font-size: 14px;
     }
 
-    .note-box {
+    .tip-box {
       margin-top: 14px;
       padding: 14px;
       border: 1px solid rgba(216,91,74,.25);
@@ -547,7 +547,7 @@
           <h2 class="result-title" id="resultTitle">節電より先に、湿度を下げたい日です</h2>
           <p class="result-copy" id="resultCopy">暑さそのものより、湿気で体が休みにくい状態です。まずは風の通り道と除湿を整えると、我慢の量を減らせます。</p>
           <div class="actions" id="actions"></div>
-          <div class="note-box" id="noteBox">有料note化するなら、ここに「あなたの我慢タイプ」と「今夜の調整ワーク」を足すと売り物になります。</div>
+          <div class="tip-box" id="tipBox">迷った日は、まず水分・風・除湿のどれか一つだけでも整えてみてください。</div>
           <div class="share-row">
             <button class="ghost" type="button" id="copyButton">結果をコピー</button>
             <button class="ghost" type="button" id="resetButton">初期値に戻す</button>
@@ -558,9 +558,9 @@
 
     <section class="below">
       <div class="panel text-panel">
-        <h2>このアプリの売りどころ</h2>
+        <h2>節電と暑さ対策を両方見る</h2>
         <p>熱中症対策を「正論」で押すのではなく、節電したい気持ちも含めて整える設計です。人は危険だから動く、だけでは動きません。納得できた時にやっと設定温度を変えます。</p>
-        <p>無料版は判定まで。noteでは、結果別の生活ワーク、エアコンを我慢する心理、家族への伝え方を足すと商品化しやすいです。</p>
+        <p>このチェッカーは、我慢するか使うかの二択ではなく、除湿・風・休憩・水分の組み合わせを見直すための小さな目安です。</p>
       </div>
       <div class="panel text-panel">
         <h2>参考情報</h2>
@@ -595,7 +595,7 @@
     const resultTitle = document.getElementById("resultTitle");
     const resultCopy = document.getElementById("resultCopy");
     const actions = document.getElementById("actions");
-    const noteBox = document.getElementById("noteBox");
+    const tipBox = document.getElementById("tipBox");
     const toast = document.getElementById("toast");
 
     const plans = {
@@ -603,7 +603,7 @@
         badge: "整えゾーン",
         title: "今は落ち着いています。油断だけ少し横に置きましょう",
         copy: "室温と湿度の組み合わせは比較的おだやかです。ただ、梅雨時期は体感があとから重くなることがあります。",
-        note: "noteでは「整っている人ほど崩れる前にやる小さな習慣」として展開できます。",
+        tip: "整っている日ほど、崩れる前の小さな調整が効きます。",
         actions: [
           ["換気", "短時間の換気やサーキュレーターで、空気を止めない状態にします。"],
           ["水分", "のどが渇く前の一口を置いておくと、あとが楽です。"],
@@ -614,7 +614,7 @@
         badge: "注意ゾーン",
         title: "節電より先に、湿度を下げたい日です",
         copy: "暑さそのものより、湿気で体が休みにくい状態です。まずは風の通り道と除湿を整えると、我慢の量を減らせます。",
-        note: "noteでは「我慢が美徳になりすぎる日」の読み解きと、家族に角を立てず伝える言葉を足せます。",
+        tip: "我慢が続く日は、まず湿度を下げるだけでも体の負担が変わります。",
         actions: [
           ["除湿", "冷房に抵抗がある日は、除湿運転や短時間運転から始めると動きやすいです。"],
           ["風", "扇風機だけで粘るより、エアコンと風を組み合わせる方が体の負担を減らせます。"],
@@ -625,7 +625,7 @@
         badge: "危険寄り",
         title: "今日は我慢を減らす判断が先です",
         copy: "室温、湿度、体のサインが重なっています。節電のがんばりが、体の回復力を削る側に回りやすい状態です。",
-        note: "有料版では「我慢しすぎタイプ」「あと回しタイプ」「家族優先タイプ」などの結果分岐が作れます。",
+        tip: "今日は節電より、体を守る判断を少し前に出したい状態です。",
         actions: [
           ["冷房", "冷房や除湿を使い、室温と湿度を下げます。体調不良がある場合は早めに相談先を確認します。"],
           ["水分", "水分と塩分を意識します。汗が多い日や食事が少ない日は特に見直します。"],
@@ -636,7 +636,7 @@
         badge: "すぐ対策",
         title: "今すぐ涼しい環境を作るラインです",
         copy: "強い暑さや体のサインが重なっています。節電の判断は後回しで、まず体を守る行動を優先してください。",
-        note: "販売用には、ここを医療助言にせず「緊急時の確認リスト」へ分けると安全です。",
+        tip: "強い症状がある時は、涼しい場所への移動と相談先の確認を優先してください。",
         actions: [
           ["移動", "涼しい場所へ移動し、冷房や除湿を使います。無理に作業を続けません。"],
           ["冷却", "首、わき、足の付け根などを冷やし、水分を少しずつ取ります。"],
@@ -705,7 +705,7 @@
       badge.textContent = plan.badge;
       resultTitle.textContent = plan.title;
       resultCopy.textContent = plan.copy;
-      noteBox.textContent = plan.note;
+      tipBox.textContent = plan.tip;
       renderActions(plan.actions);
 
       const colorMap = {

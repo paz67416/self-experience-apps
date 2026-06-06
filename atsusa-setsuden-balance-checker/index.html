@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>暑さと節電のちょうどよさチェッカー</title>
+  <meta name="description" content="梅雨から夏にかけての暑さ、湿度、エアコンの使い方をもとに、熱中症対策と節電のバランスを見直す静的チェックアプリです。">
+  <style>
+    :root {
+      --ink: #243036;
+      --muted: #657177;
+      --line: #dce6e3;
+      --paper: #fbfcf8;
+      --panel: #ffffff;
+      --green: #126b5a;
+      --green-soft: #dcefe8;
+      --sun: #f5b84b;
+      --sun-soft: #fff1cc;
+      --coral: #d85b4a;
+      --coral-soft: #ffe3dc;
+      --blue: #3b6f9f;
+      --blue-soft: #e3eff8;
+      --shadow: 0 16px 48px rgba(36, 48, 54, .11);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 12% 4%, rgba(245,184,75,.26), transparent 28%),
+        linear-gradient(135deg, #f7fbf6 0%, #f2f7fb 42%, #fff8e8 100%);
+      line-height: 1.65;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 28px 0 48px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr);
+      gap: 26px;
+      align-items: stretch;
+      min-height: 360px;
+    }
+
+    .hero-text {
+      padding: clamp(24px, 4vw, 46px) 0;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding: 5px 11px;
+      border: 1px solid rgba(18,107,90,.22);
+      border-radius: 999px;
+      background: rgba(255,255,255,.7);
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 16px 0 12px;
+      font-size: clamp(34px, 5vw, 62px);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 680px;
+      color: #445056;
+      font-size: clamp(16px, 2.1vw, 20px);
+    }
+
+    .weather-plate {
+      position: relative;
+      overflow: hidden;
+      min-height: 330px;
+      border: 1px solid rgba(255,255,255,.7);
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,.76)),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='960' height='720' viewBox='0 0 960 720'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%2395c9c0'/%3E%3Cstop offset='.45' stop-color='%23f3d67a'/%3E%3Cstop offset='1' stop-color='%23e98772'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='960' height='720' fill='url(%23g)'/%3E%3Cpath d='M0 512 C170 414 263 564 420 474 C596 373 710 407 960 298 L960 720 L0 720 Z' fill='%23f7fbf6' fill-opacity='.78'/%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.52' stroke-width='10'%3E%3Cpath d='M96 126 C176 84 244 87 315 132'/%3E%3Cpath d='M604 110 C702 58 790 72 878 128'/%3E%3Cpath d='M104 254 C230 189 338 218 462 278'/%3E%3C/g%3E%3Cg fill='%23ffffff' fill-opacity='.48'%3E%3Ccircle cx='740' cy='236' r='92'/%3E%3Ccircle cx='256' cy='430' r='58'/%3E%3C/g%3E%3C/svg%3E");
+      background-size: cover;
+      box-shadow: var(--shadow);
+    }
+
+    .floating-meter {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+      left: 18px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .mini {
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,.7);
+      border-radius: 8px;
+      background: rgba(255,255,255,.78);
+      backdrop-filter: blur(8px);
+    }
+
+    .mini span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .mini strong {
+      display: block;
+      margin-top: 3px;
+      font-size: clamp(18px, 2.5vw, 28px);
+      line-height: 1.1;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(0, .95fr) minmax(320px, 1.05fr);
+      gap: 18px;
+      align-items: start;
+      margin-top: 18px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,.88);
+      box-shadow: 0 8px 28px rgba(36,48,54,.07);
+    }
+
+    .form-panel {
+      padding: 20px;
+    }
+
+    .section-title {
+      margin: 0 0 14px;
+      font-size: 19px;
+      line-height: 1.3;
+    }
+
+    .field {
+      margin: 0 0 17px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+
+    label,
+    .label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    .value {
+      min-width: 64px;
+      text-align: right;
+      color: var(--green);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--green);
+    }
+
+    .segments {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .segments.two {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .seg {
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .seg[aria-pressed="true"] {
+      border-color: var(--green);
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .checks {
+      display: grid;
+      gap: 8px;
+    }
+
+    .check {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 8px;
+      align-items: start;
+      margin: 0;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      font-weight: 700;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-top: 3px;
+      accent-color: var(--coral);
+    }
+
+    .result-panel {
+      position: sticky;
+      top: 14px;
+      overflow: hidden;
+    }
+
+    .result-head {
+      padding: 22px;
+      background: linear-gradient(135deg, var(--green-soft), #fff6dc);
+    }
+
+    .score-line {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .score {
+      font-size: clamp(52px, 8vw, 86px);
+      font-weight: 900;
+      line-height: .95;
+      letter-spacing: 0;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 11px;
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--green);
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .result-body {
+      padding: 20px 22px 22px;
+    }
+
+    .result-title {
+      margin: 0 0 8px;
+      font-size: clamp(22px, 3vw, 31px);
+      line-height: 1.2;
+    }
+
+    .result-copy {
+      margin: 0 0 18px;
+      color: #445056;
+    }
+
+    .actions {
+      display: grid;
+      gap: 10px;
+    }
+
+    .action-card {
+      display: grid;
+      grid-template-columns: 38px 1fr;
+      gap: 11px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .mark {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      background: var(--blue-soft);
+      color: var(--blue);
+      font-weight: 900;
+    }
+
+    .action-card strong {
+      display: block;
+      margin-bottom: 2px;
+      line-height: 1.35;
+    }
+
+    .action-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .note-box {
+      margin-top: 14px;
+      padding: 14px;
+      border: 1px solid rgba(216,91,74,.25);
+      border-radius: 8px;
+      background: var(--coral-soft);
+      color: #733428;
+      font-weight: 750;
+    }
+
+    .share-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin-top: 14px;
+    }
+
+    .ghost {
+      min-height: 42px;
+      padding: 8px 13px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .ghost:hover,
+    .seg:hover {
+      border-color: var(--green);
+    }
+
+    .below {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .text-panel {
+      padding: 19px;
+    }
+
+    .text-panel h2 {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+
+    .text-panel p {
+      margin: 0 0 10px;
+      color: #4c5960;
+    }
+
+    .text-panel p:last-child { margin-bottom: 0; }
+
+    .source-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .source-list a {
+      display: inline-flex;
+      min-height: 34px;
+      align-items: center;
+      padding: 5px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--blue);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .toast {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 5;
+      padding: 11px 14px;
+      border-radius: 8px;
+      background: #253036;
+      color: white;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity .18s ease, transform .18s ease;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 860px) {
+      main {
+        width: min(100% - 20px, 640px);
+        padding-top: 18px;
+      }
+
+      .hero,
+      .app,
+      .below {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-text {
+        padding: 14px 0 0;
+      }
+
+      .weather-plate {
+        min-height: 240px;
+      }
+
+      .result-panel {
+        position: static;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .segments,
+      .segments.two,
+      .floating-meter {
+        grid-template-columns: 1fr;
+      }
+
+      .score-line {
+        display: block;
+      }
+
+      .badge {
+        margin-top: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero" aria-labelledby="app-title">
+      <div class="hero-text">
+        <span class="eyebrow">梅雨型熱中症 × 節電</span>
+        <h1 id="app-title">暑さと節電の<br>ちょうどよさチェッカー</h1>
+        <p class="lead">湿度が高い日ほど、体はこっそり疲れます。エアコンを我慢する気合いが、なぜか家計にも体にも強めに刺さる日があります。</p>
+      </div>
+      <div class="weather-plate" aria-label="湿度と暑さのイメージ">
+        <div class="floating-meter">
+          <div class="mini"><span>室温</span><strong id="heroTemp">28℃</strong></div>
+          <div class="mini"><span>湿度</span><strong id="heroHumidity">70%</strong></div>
+          <div class="mini"><span>判定</span><strong id="heroLevel">注意</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="app" aria-label="判定フォーム">
+      <form class="panel form-panel" id="checker">
+        <h2 class="section-title">今の部屋と体の感じ</h2>
+
+        <div class="field">
+          <label for="temp">室温 <span class="value"><span id="tempValue">28</span>℃</span></label>
+          <input id="temp" name="temp" type="range" min="22" max="36" value="28">
+        </div>
+
+        <div class="field">
+          <label for="humidity">湿度 <span class="value"><span id="humidityValue">70</span>%</span></label>
+          <input id="humidity" name="humidity" type="range" min="35" max="95" value="70">
+        </div>
+
+        <div class="field">
+          <div class="label">体の動き</div>
+          <div class="segments" data-group="activity">
+            <button class="seg" type="button" data-value="0" aria-pressed="true">座り中心</button>
+            <button class="seg" type="button" data-value="1" aria-pressed="false">家事あり</button>
+            <button class="seg" type="button" data-value="2" aria-pressed="false">汗ばむ作業</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="label">エアコンの構え</div>
+          <div class="segments" data-group="ac">
+            <button class="seg" type="button" data-value="0" aria-pressed="true">使えている</button>
+            <button class="seg" type="button" data-value="1" aria-pressed="false">少し我慢</button>
+            <button class="seg" type="button" data-value="2" aria-pressed="false">かなり我慢</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="label">水分と休息</div>
+          <div class="segments two" data-group="care">
+            <button class="seg" type="button" data-value="0" aria-pressed="true">取れている</button>
+            <button class="seg" type="button" data-value="1" aria-pressed="false">あやしい</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="label">気になるサイン</div>
+          <div class="checks">
+            <label class="check"><input type="checkbox" name="sign" value="12">頭が重い、ぼんやりする</label>
+            <label class="check"><input type="checkbox" name="sign" value="12">寝つきが悪い、眠りが浅い</label>
+            <label class="check"><input type="checkbox" name="sign" value="14">汗をかきにくい、または汗が止まらない</label>
+            <label class="check"><input type="checkbox" name="sign" value="16">高齢者、子ども、体調不良の人がいる</label>
+          </div>
+        </div>
+      </form>
+
+      <aside class="panel result-panel" aria-live="polite">
+        <div class="result-head">
+          <div class="score-line">
+            <div>
+              <div class="score" id="score">48</div>
+            </div>
+            <span class="badge" id="badge">注意ゾーン</span>
+          </div>
+        </div>
+        <div class="result-body">
+          <h2 class="result-title" id="resultTitle">節電より先に、湿度を下げたい日です</h2>
+          <p class="result-copy" id="resultCopy">暑さそのものより、湿気で体が休みにくい状態です。まずは風の通り道と除湿を整えると、我慢の量を減らせます。</p>
+          <div class="actions" id="actions"></div>
+          <div class="note-box" id="noteBox">有料note化するなら、ここに「あなたの我慢タイプ」と「今夜の調整ワーク」を足すと売り物になります。</div>
+          <div class="share-row">
+            <button class="ghost" type="button" id="copyButton">結果をコピー</button>
+            <button class="ghost" type="button" id="resetButton">初期値に戻す</button>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="below">
+      <div class="panel text-panel">
+        <h2>このアプリの売りどころ</h2>
+        <p>熱中症対策を「正論」で押すのではなく、節電したい気持ちも含めて整える設計です。人は危険だから動く、だけでは動きません。納得できた時にやっと設定温度を変えます。</p>
+        <p>無料版は判定まで。noteでは、結果別の生活ワーク、エアコンを我慢する心理、家族への伝え方を足すと商品化しやすいです。</p>
+      </div>
+      <div class="panel text-panel">
+        <h2>参考情報</h2>
+        <p>体調が悪い場合や強い症状がある場合は、自治体や医療機関の情報を優先してください。この判定は生活の見直し用です。</p>
+        <div class="source-list">
+          <a href="https://www.gov-online.go.jp/newspaper/tsukidashi/202606/newspaper-1970.html" target="_blank" rel="noopener">政府広報オンライン</a>
+          <a href="https://www.netsuzero.jp/weather" target="_blank" rel="noopener">熱中症ゼロへ</a>
+          <a href="https://www.jma.go.jp/jma/kishou/books/jma-guidebook/GuideBook2026.pdf" target="_blank" rel="noopener">気象庁ガイド</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast">コピーしました</div>
+
+  <script>
+    const state = {
+      activity: 0,
+      ac: 0,
+      care: 0
+    };
+
+    const temp = document.getElementById("temp");
+    const humidity = document.getElementById("humidity");
+    const tempValue = document.getElementById("tempValue");
+    const humidityValue = document.getElementById("humidityValue");
+    const heroTemp = document.getElementById("heroTemp");
+    const heroHumidity = document.getElementById("heroHumidity");
+    const heroLevel = document.getElementById("heroLevel");
+    const scoreEl = document.getElementById("score");
+    const badge = document.getElementById("badge");
+    const resultTitle = document.getElementById("resultTitle");
+    const resultCopy = document.getElementById("resultCopy");
+    const actions = document.getElementById("actions");
+    const noteBox = document.getElementById("noteBox");
+    const toast = document.getElementById("toast");
+
+    const plans = {
+      low: {
+        badge: "整えゾーン",
+        title: "今は落ち着いています。油断だけ少し横に置きましょう",
+        copy: "室温と湿度の組み合わせは比較的おだやかです。ただ、梅雨時期は体感があとから重くなることがあります。",
+        note: "noteでは「整っている人ほど崩れる前にやる小さな習慣」として展開できます。",
+        actions: [
+          ["換気", "短時間の換気やサーキュレーターで、空気を止めない状態にします。"],
+          ["水分", "のどが渇く前の一口を置いておくと、あとが楽です。"],
+          ["夜", "寝る前の湿度が高い日は、除湿を短時間だけ使うのも手です。"]
+        ]
+      },
+      mid: {
+        badge: "注意ゾーン",
+        title: "節電より先に、湿度を下げたい日です",
+        copy: "暑さそのものより、湿気で体が休みにくい状態です。まずは風の通り道と除湿を整えると、我慢の量を減らせます。",
+        note: "noteでは「我慢が美徳になりすぎる日」の読み解きと、家族に角を立てず伝える言葉を足せます。",
+        actions: [
+          ["除湿", "冷房に抵抗がある日は、除湿運転や短時間運転から始めると動きやすいです。"],
+          ["風", "扇風機だけで粘るより、エアコンと風を組み合わせる方が体の負担を減らせます。"],
+          ["休憩", "家事や作業は一気に終わらせず、汗ばむ前に区切ります。"]
+        ]
+      },
+      high: {
+        badge: "危険寄り",
+        title: "今日は我慢を減らす判断が先です",
+        copy: "室温、湿度、体のサインが重なっています。節電のがんばりが、体の回復力を削る側に回りやすい状態です。",
+        note: "有料版では「我慢しすぎタイプ」「あと回しタイプ」「家族優先タイプ」などの結果分岐が作れます。",
+        actions: [
+          ["冷房", "冷房や除湿を使い、室温と湿度を下げます。体調不良がある場合は早めに相談先を確認します。"],
+          ["水分", "水分と塩分を意識します。汗が多い日や食事が少ない日は特に見直します。"],
+          ["中止", "屋外作業や汗ばむ家事は、時間帯をずらすか中断します。"]
+        ]
+      },
+      urgent: {
+        badge: "すぐ対策",
+        title: "今すぐ涼しい環境を作るラインです",
+        copy: "強い暑さや体のサインが重なっています。節電の判断は後回しで、まず体を守る行動を優先してください。",
+        note: "販売用には、ここを医療助言にせず「緊急時の確認リスト」へ分けると安全です。",
+        actions: [
+          ["移動", "涼しい場所へ移動し、冷房や除湿を使います。無理に作業を続けません。"],
+          ["冷却", "首、わき、足の付け根などを冷やし、水分を少しずつ取ります。"],
+          ["相談", "強いだるさ、めまい、意識の違和感がある場合は、救急相談や医療機関を優先します。"]
+        ]
+      }
+    };
+
+    function clamp(num, min, max) {
+      return Math.max(min, Math.min(max, num));
+    }
+
+    function calculateScore() {
+      const t = Number(temp.value);
+      const h = Number(humidity.value);
+      const signScore = Array.from(document.querySelectorAll('input[name="sign"]:checked'))
+        .reduce((sum, item) => sum + Number(item.value), 0);
+
+      let score = 0;
+      score += (t - 22) * 3.2;
+      score += Math.max(0, h - 45) * .75;
+      score += state.activity * 10;
+      score += state.ac * 9;
+      score += state.care * 10;
+      score += signScore;
+
+      if (t >= 30 && h >= 70) score += 12;
+      if (t >= 32) score += 10;
+      if (h >= 80) score += 7;
+
+      return Math.round(clamp(score, 0, 100));
+    }
+
+    function getLevel(score) {
+      if (score >= 82) return "urgent";
+      if (score >= 66) return "high";
+      if (score >= 38) return "mid";
+      return "low";
+    }
+
+    function renderActions(items) {
+      actions.innerHTML = items.map((item, index) => `
+        <div class="action-card">
+          <div class="mark">${index + 1}</div>
+          <div>
+            <strong>${item[0]}</strong>
+            <p>${item[1]}</p>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function update() {
+      const score = calculateScore();
+      const level = getLevel(score);
+      const plan = plans[level];
+      const t = Number(temp.value);
+      const h = Number(humidity.value);
+
+      tempValue.textContent = t;
+      humidityValue.textContent = h;
+      heroTemp.textContent = `${t}℃`;
+      heroHumidity.textContent = `${h}%`;
+      heroLevel.textContent = plan.badge.replace("ゾーン", "");
+      scoreEl.textContent = score;
+      badge.textContent = plan.badge;
+      resultTitle.textContent = plan.title;
+      resultCopy.textContent = plan.copy;
+      noteBox.textContent = plan.note;
+      renderActions(plan.actions);
+
+      const colorMap = {
+        low: ["#126b5a", "#dcefe8"],
+        mid: ["#b77716", "#fff1cc"],
+        high: ["#c94f3f", "#ffe3dc"],
+        urgent: ["#9c2f2b", "#ffd7d1"]
+      };
+      badge.style.color = colorMap[level][0];
+      document.querySelector(".result-head").style.background = `linear-gradient(135deg, ${colorMap[level][1]}, #ffffff)`;
+    }
+
+    document.querySelectorAll(".segments").forEach(group => {
+      group.addEventListener("click", event => {
+        const button = event.target.closest(".seg");
+        if (!button) return;
+        group.querySelectorAll(".seg").forEach(item => item.setAttribute("aria-pressed", "false"));
+        button.setAttribute("aria-pressed", "true");
+        state[group.dataset.group] = Number(button.dataset.value);
+        update();
+      });
+    });
+
+    document.querySelectorAll("input").forEach(input => {
+      input.addEventListener("input", update);
+      input.addEventListener("change", update);
+    });
+
+    document.getElementById("copyButton").addEventListener("click", async () => {
+      const text = `暑さと節電のちょうどよさチェッカー: ${scoreEl.textContent}点 / ${badge.textContent}\n${resultTitle.textContent}\n${resultCopy.textContent}`;
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast("コピーしました");
+      } catch (error) {
+        showToast("コピーできませんでした");
+      }
+    });
+
+    document.getElementById("resetButton").addEventListener("click", () => {
+      temp.value = 28;
+      humidity.value = 70;
+      document.querySelectorAll('input[name="sign"]').forEach(item => item.checked = false);
+      Object.keys(state).forEach(key => state[key] = 0);
+      document.querySelectorAll(".segments").forEach(group => {
+        group.querySelectorAll(".seg").forEach((item, index) => {
+          item.setAttribute("aria-pressed", index === 0 ? "true" : "false");
+        });
+      });
+      update();
+    });
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      window.setTimeout(() => toast.classList.remove("show"), 1600);
+    }
+
+    update();
+  </script>
+</body>
+</html>

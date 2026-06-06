@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>部屋干し臭リスクチェッカー</title>
+  <meta name="description" content="梅雨時期の部屋干し臭が気になる日に、湿度、干し方、洗濯槽、風通しから生乾き臭の出やすさを確認する無料チェックアプリです。">
+  <style>
+    :root {
+      --ink: #22313a;
+      --muted: #66747b;
+      --line: #d9e4df;
+      --paper: #fbfcf7;
+      --panel: #fff;
+      --leaf: #256c58;
+      --leaf-soft: #dcefe7;
+      --sky: #447ca4;
+      --sky-soft: #e3f0f7;
+      --amber: #e8a93e;
+      --amber-soft: #fff0c8;
+      --rose: #d8644f;
+      --rose-soft: #ffe5df;
+      --shadow: 0 16px 44px rgba(34, 49, 58, .12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+      background:
+        linear-gradient(135deg, rgba(220,239,231,.9), rgba(227,240,247,.82) 48%, rgba(255,240,200,.78)),
+        radial-gradient(circle at 88% 8%, rgba(68,124,164,.22), transparent 26%);
+    }
+
+    main {
+      width: min(1120px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 28px 0 48px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(300px, .95fr);
+      gap: 28px;
+      align-items: stretch;
+    }
+
+    .hero-copy {
+      padding: clamp(20px, 4vw, 46px) 0 16px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      min-height: 32px;
+      align-items: center;
+      padding: 5px 11px;
+      border: 1px solid rgba(37,108,88,.24);
+      border-radius: 999px;
+      background: rgba(255,255,255,.72);
+      color: var(--leaf);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    h1 {
+      margin: 16px 0 12px;
+      font-size: clamp(34px, 5vw, 61px);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 680px;
+      color: #46565e;
+      font-size: clamp(16px, 2.1vw, 20px);
+    }
+
+    .visual {
+      position: relative;
+      min-height: 340px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.72);
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.24), rgba(255,255,255,.72)),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1000' height='760' viewBox='0 0 1000 760'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%23b8d9d0'/%3E%3Cstop offset='.55' stop-color='%23f5dfa6'/%3E%3Cstop offset='1' stop-color='%239fc3d8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1000' height='760' fill='url(%23g)'/%3E%3Crect x='0' y='500' width='1000' height='260' fill='%23f8fbf6' fill-opacity='.8'/%3E%3Cg stroke='%23ffffff' stroke-width='8' stroke-linecap='round' opacity='.65'%3E%3Cpath d='M130 170 H870'/%3E%3Cpath d='M178 170 C192 235 196 282 184 350'/%3E%3Cpath d='M330 170 C350 250 336 310 360 380'/%3E%3Cpath d='M540 170 C526 246 560 302 548 382'/%3E%3Cpath d='M750 170 C772 240 754 310 790 376'/%3E%3C/g%3E%3Cg fill='%23ffffff' opacity='.72'%3E%3Crect x='154' y='212' width='120' height='168' rx='18'/%3E%3Crect x='300' y='230' width='130' height='180' rx='18'/%3E%3Crect x='510' y='210' width='118' height='174' rx='18'/%3E%3Crect x='720' y='220' width='138' height='192' rx='18'/%3E%3C/g%3E%3Cg fill='none' stroke='%23256c58' stroke-opacity='.32' stroke-width='7'%3E%3Cpath d='M94 460 C170 414 248 414 318 462'/%3E%3Cpath d='M600 472 C690 412 790 420 892 476'/%3E%3C/g%3E%3C/svg%3E");
+      background-size: cover;
+      box-shadow: var(--shadow);
+    }
+
+    .visual-meters {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+      left: 18px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .mini {
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,.72);
+      border-radius: 8px;
+      background: rgba(255,255,255,.78);
+      backdrop-filter: blur(8px);
+    }
+
+    .mini span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .mini strong {
+      display: block;
+      margin-top: 3px;
+      font-size: clamp(18px, 2.5vw, 28px);
+      line-height: 1.1;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(0, .95fr) minmax(320px, 1.05fr);
+      gap: 18px;
+      margin-top: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,.9);
+      box-shadow: 0 8px 28px rgba(34,49,58,.07);
+    }
+
+    .form-panel { padding: 20px; }
+
+    .section-title {
+      margin: 0 0 14px;
+      font-size: 20px;
+      line-height: 1.3;
+    }
+
+    .field {
+      margin: 0 0 17px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+
+    label,
+    .label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      color: var(--ink);
+      font-weight: 850;
+    }
+
+    .value {
+      min-width: 70px;
+      text-align: right;
+      color: var(--leaf);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--leaf);
+    }
+
+    .segments {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .segments.two { grid-template-columns: repeat(2, 1fr); }
+
+    .seg {
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .seg[aria-pressed="true"] {
+      border-color: var(--leaf);
+      background: var(--leaf-soft);
+      color: var(--leaf);
+    }
+
+    .checks {
+      display: grid;
+      gap: 8px;
+    }
+
+    .check {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 8px;
+      align-items: start;
+      margin: 0;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      font-weight: 750;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-top: 3px;
+      accent-color: var(--rose);
+    }
+
+    .result-panel {
+      position: sticky;
+      top: 14px;
+      overflow: hidden;
+    }
+
+    .result-head {
+      padding: 22px;
+      background: linear-gradient(135deg, var(--leaf-soft), #fff6dc);
+    }
+
+    .score-line {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .score {
+      font-size: clamp(52px, 8vw, 86px);
+      font-weight: 950;
+      line-height: .95;
+      letter-spacing: 0;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 11px;
+      border-radius: 999px;
+      background: #fff;
+      color: var(--leaf);
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .result-body { padding: 20px 22px 22px; }
+
+    .result-title {
+      margin: 0 0 8px;
+      font-size: clamp(22px, 3vw, 31px);
+      line-height: 1.2;
+    }
+
+    .result-copy {
+      margin: 0 0 18px;
+      color: #46565e;
+    }
+
+    .actions {
+      display: grid;
+      gap: 10px;
+    }
+
+    .action-card {
+      display: grid;
+      grid-template-columns: 38px 1fr;
+      gap: 11px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .mark {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      background: var(--sky-soft);
+      color: var(--sky);
+      font-weight: 900;
+    }
+
+    .action-card strong {
+      display: block;
+      margin-bottom: 2px;
+      line-height: 1.35;
+    }
+
+    .action-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .tip-box {
+      margin-top: 14px;
+      padding: 14px;
+      border: 1px solid rgba(37,108,88,.24);
+      border-radius: 8px;
+      background: var(--leaf-soft);
+      color: #245244;
+      font-weight: 750;
+    }
+
+    .share-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin-top: 14px;
+    }
+
+    .ghost {
+      min-height: 42px;
+      padding: 8px 13px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .ghost:hover,
+    .seg:hover { border-color: var(--leaf); }
+
+    .below {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .text-panel { padding: 19px; }
+
+    .text-panel h2 {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+
+    .text-panel p {
+      margin: 0 0 10px;
+      color: #4d5c63;
+    }
+
+    .text-panel p:last-child { margin-bottom: 0; }
+
+    .toast {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 5;
+      padding: 11px 14px;
+      border-radius: 8px;
+      background: #24313a;
+      color: white;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity .18s ease, transform .18s ease;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 860px) {
+      main {
+        width: min(100% - 20px, 640px);
+        padding-top: 18px;
+      }
+
+      .hero,
+      .app,
+      .below {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-copy { padding: 14px 0 0; }
+      .visual { min-height: 240px; }
+      .result-panel { position: static; }
+    }
+
+    @media (max-width: 520px) {
+      .segments,
+      .segments.two,
+      .visual-meters { grid-template-columns: 1fr; }
+
+      .score-line { display: block; }
+      .badge { margin-top: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero" aria-labelledby="app-title">
+      <div class="hero-copy">
+        <span class="eyebrow">梅雨の部屋干し × 生乾き臭</span>
+        <h1 id="app-title">部屋干し臭<br>リスクチェッカー</h1>
+        <p class="lead">洗ったはずなのに、なんだかにおう。梅雨の洗濯は、干し方・湿度・風・洗濯槽がまとめて機嫌を取りにきます。</p>
+      </div>
+      <div class="visual" aria-label="部屋干しと湿気のイメージ">
+        <div class="visual-meters">
+          <div class="mini"><span>湿度</span><strong id="heroHumidity">70%</strong></div>
+          <div class="mini"><span>間隔</span><strong id="heroSpace">普通</strong></div>
+          <div class="mini"><span>判定</span><strong id="heroLevel">注意</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="app" aria-label="判定フォーム">
+      <form class="panel form-panel" id="checker">
+        <h2 class="section-title">今日の干し方をチェック</h2>
+
+        <div class="field">
+          <label for="humidity">部屋の湿度 <span class="value"><span id="humidityValue">70</span>%</span></label>
+          <input id="humidity" name="humidity" type="range" min="40" max="95" value="70">
+        </div>
+
+        <div class="field">
+          <label for="hours">乾くまでの時間 <span class="value"><span id="hoursValue">7</span>時間</span></label>
+          <input id="hours" name="hours" type="range" min="2" max="18" value="7">
+        </div>
+
+        <div class="field">
+          <div class="label">洗濯物の間隔</div>
+          <div class="segments" data-group="space">
+            <button class="seg" type="button" data-value="0" aria-pressed="false">広め</button>
+            <button class="seg" type="button" data-value="1" aria-pressed="true">普通</button>
+            <button class="seg" type="button" data-value="2" aria-pressed="false">ぎゅうぎゅう</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="label">風の当たり方</div>
+          <div class="segments" data-group="air">
+            <button class="seg" type="button" data-value="0" aria-pressed="false">風あり</button>
+            <button class="seg" type="button" data-value="1" aria-pressed="true">少しだけ</button>
+            <button class="seg" type="button" data-value="2" aria-pressed="false">ほぼなし</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="label">洗濯槽・フィルター</div>
+          <div class="segments" data-group="washer">
+            <button class="seg" type="button" data-value="0" aria-pressed="false">最近掃除した</button>
+            <button class="seg" type="button" data-value="1" aria-pressed="true">少し前</button>
+            <button class="seg" type="button" data-value="2" aria-pressed="false">覚えていない</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="label">気になること</div>
+          <div class="checks">
+            <label class="check"><input type="checkbox" name="sign" value="10">洗濯後すぐに干せないことがある</label>
+            <label class="check"><input type="checkbox" name="sign" value="12">タオルや厚手服が乾きにくい</label>
+            <label class="check"><input type="checkbox" name="sign" value="12">洗濯槽や糸くずフィルターが気になる</label>
+            <label class="check"><input type="checkbox" name="sign" value="14">干す部屋の窓を閉め切りがち</label>
+          </div>
+        </div>
+      </form>
+
+      <aside class="panel result-panel" aria-live="polite">
+        <div class="result-head">
+          <div class="score-line">
+            <div class="score" id="score">52</div>
+            <span class="badge" id="badge">注意ゾーン</span>
+          </div>
+        </div>
+        <div class="result-body">
+          <h2 class="result-title" id="resultTitle">風と間隔を少し足したい日です</h2>
+          <p class="result-copy" id="resultCopy">湿度と乾くまでの時間が重なり、生乾き臭が出やすい状態です。まずは洗濯物の間隔と風の通り道を整えましょう。</p>
+          <div class="actions" id="actions"></div>
+          <div class="tip-box" id="tipBox">におい対策は、洗剤を増やすより「早く水分を逃がす」方が効くことがあります。</div>
+          <div class="share-row">
+            <button class="ghost" type="button" id="copyButton">結果をコピー</button>
+            <button class="ghost" type="button" id="resetButton">初期値に戻す</button>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="below">
+      <div class="panel text-panel">
+        <h2>においは洗濯後にも育ちます</h2>
+        <p>部屋干し臭は、汚れ・湿度・乾きにくさが重なると出やすくなります。洗った直後は大丈夫でも、乾くまでの時間が長いと、においが残りやすくなります。</p>
+        <p>このチェッカーは、今日の干し方を見直すための目安です。強い汚れやカビが気になる場合は、衣類表示や洗濯機の取扱説明書を確認してください。</p>
+      </div>
+      <div class="panel text-panel">
+        <h2>まず変えやすい順番</h2>
+        <p>最初に風を当てる。次に間隔を空ける。厚手のものを外側へ出す。洗濯槽やフィルターは、気になった時点で確認する。</p>
+        <p>一気に完璧を狙わなくても、乾くまでの時間を少し短くするだけで、部屋干しの感じはかなり変わります。</p>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast">コピーしました</div>
+
+  <script>
+    const state = { space: 1, air: 1, washer: 1 };
+
+    const humidity = document.getElementById("humidity");
+    const hours = document.getElementById("hours");
+    const humidityValue = document.getElementById("humidityValue");
+    const hoursValue = document.getElementById("hoursValue");
+    const heroHumidity = document.getElementById("heroHumidity");
+    const heroSpace = document.getElementById("heroSpace");
+    const heroLevel = document.getElementById("heroLevel");
+    const scoreEl = document.getElementById("score");
+    const badge = document.getElementById("badge");
+    const resultTitle = document.getElementById("resultTitle");
+    const resultCopy = document.getElementById("resultCopy");
+    const actions = document.getElementById("actions");
+    const tipBox = document.getElementById("tipBox");
+    const toast = document.getElementById("toast");
+
+    const plans = {
+      low: {
+        badge: "整えゾーン",
+        title: "今日は乾きやすい寄りです",
+        copy: "湿度や風の条件は比較的おだやかです。厚手のものだけ外側に出しておくと、さらに安心です。",
+        tip: "乾きやすい日でも、洗濯後はなるべく早めに干すとにおいを防ぎやすくなります。",
+        actions: [
+          ["厚手", "タオルやパーカーは外側に出し、風が当たる場所へ置きます。"],
+          ["間隔", "肩や袖が重ならないように少しだけ空間を作ります。"],
+          ["回収", "乾いたものから先に取り込むと、湿気戻りを減らせます。"]
+        ]
+      },
+      mid: {
+        badge: "注意ゾーン",
+        title: "風と間隔を少し足したい日です",
+        copy: "湿度と乾くまでの時間が重なり、生乾き臭が出やすい状態です。まずは洗濯物の間隔と風の通り道を整えましょう。",
+        tip: "におい対策は、洗剤を増やすより「早く水分を逃がす」方が効くことがあります。",
+        actions: [
+          ["風", "扇風機やサーキュレーターで、洗濯物の下から横へ風を通します。"],
+          ["間隔", "ぎゅうぎゅう干しを避け、タオルはずらして干します。"],
+          ["除湿", "湿度が高い日は、除湿機やエアコンの除湿を短時間使うのも手です。"]
+        ]
+      },
+      high: {
+        badge: "におい注意",
+        title: "今日は生乾き臭が残りやすい条件です",
+        copy: "湿度、乾燥時間、風の少なさが重なっています。干す場所と洗濯槽まわりを一度見直したい日です。",
+        tip: "乾くまでに時間がかかる日は、厚手のものを減らして分け洗いするのも有効です。",
+        actions: [
+          ["分ける", "厚手のタオルやパーカーは別に干し、空間を作ります。"],
+          ["掃除", "糸くずフィルターや洗濯槽の汚れがないか確認します。"],
+          ["換気", "閉め切りの部屋では、短時間でも空気の入れ替えをします。"]
+        ]
+      },
+      urgent: {
+        badge: "要見直し",
+        title: "洗い方と干し方をまとめて見直したい状態です",
+        copy: "においが出やすい条件がかなり重なっています。洗濯後すぐ干す、風を当てる、洗濯槽を確認するところから始めましょう。",
+        tip: "強いにおいやカビが続く時は、衣類・洗濯機それぞれの表示や説明書に沿って手入れしてください。",
+        actions: [
+          ["すぐ干す", "洗濯が終わったら放置せず、できるだけ早く広げます。"],
+          ["風と除湿", "風だけで足りない日は、除湿も組み合わせます。"],
+          ["槽まわり", "洗濯槽、フィルター、洗剤投入口の汚れを確認します。"]
+        ]
+      }
+    };
+
+    function clamp(num, min, max) {
+      return Math.max(min, Math.min(max, num));
+    }
+
+    function calculateScore() {
+      const h = Number(humidity.value);
+      const dryHours = Number(hours.value);
+      const signScore = Array.from(document.querySelectorAll('input[name="sign"]:checked'))
+        .reduce((sum, item) => sum + Number(item.value), 0);
+
+      let score = 0;
+      score += Math.max(0, h - 45) * .85;
+      score += Math.max(0, dryHours - 3) * 4.2;
+      score += state.space * 9;
+      score += state.air * 10;
+      score += state.washer * 8;
+      score += signScore;
+
+      if (h >= 75 && dryHours >= 8) score += 10;
+      if (state.space === 2 && state.air === 2) score += 10;
+      if (state.washer === 2 && signScore > 0) score += 8;
+
+      return Math.round(clamp(score, 0, 100));
+    }
+
+    function getLevel(score) {
+      if (score >= 82) return "urgent";
+      if (score >= 65) return "high";
+      if (score >= 36) return "mid";
+      return "low";
+    }
+
+    function renderActions(items) {
+      actions.innerHTML = items.map((item, index) => `
+        <div class="action-card">
+          <div class="mark">${index + 1}</div>
+          <div>
+            <strong>${item[0]}</strong>
+            <p>${item[1]}</p>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function selectedLabel(groupName) {
+      const selected = document.querySelector(`.segments[data-group="${groupName}"] .seg[aria-pressed="true"]`);
+      return selected ? selected.textContent : "";
+    }
+
+    function update() {
+      const score = calculateScore();
+      const level = getLevel(score);
+      const plan = plans[level];
+
+      humidityValue.textContent = humidity.value;
+      hoursValue.textContent = hours.value;
+      heroHumidity.textContent = `${humidity.value}%`;
+      heroSpace.textContent = selectedLabel("space");
+      heroLevel.textContent = plan.badge.replace("ゾーン", "");
+      scoreEl.textContent = score;
+      badge.textContent = plan.badge;
+      resultTitle.textContent = plan.title;
+      resultCopy.textContent = plan.copy;
+      tipBox.textContent = plan.tip;
+      renderActions(plan.actions);
+
+      const colorMap = {
+        low: ["#256c58", "#dcefe7"],
+        mid: ["#b77716", "#fff0c8"],
+        high: ["#c65541", "#ffe5df"],
+        urgent: ["#97342e", "#ffd7d1"]
+      };
+      badge.style.color = colorMap[level][0];
+      document.querySelector(".result-head").style.background = `linear-gradient(135deg, ${colorMap[level][1]}, #ffffff)`;
+    }
+
+    document.querySelectorAll(".segments").forEach(group => {
+      group.addEventListener("click", event => {
+        const button = event.target.closest(".seg");
+        if (!button) return;
+        group.querySelectorAll(".seg").forEach(item => item.setAttribute("aria-pressed", "false"));
+        button.setAttribute("aria-pressed", "true");
+        state[group.dataset.group] = Number(button.dataset.value);
+        update();
+      });
+    });
+
+    document.querySelectorAll("input").forEach(input => {
+      input.addEventListener("input", update);
+      input.addEventListener("change", update);
+    });
+
+    document.getElementById("copyButton").addEventListener("click", async () => {
+      const text = `部屋干し臭リスクチェッカー: ${scoreEl.textContent}点 / ${badge.textContent}\n${resultTitle.textContent}\n${resultCopy.textContent}`;
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast("コピーしました");
+      } catch (error) {
+        showToast("コピーできませんでした");
+      }
+    });
+
+    document.getElementById("resetButton").addEventListener("click", () => {
+      humidity.value = 70;
+      hours.value = 7;
+      document.querySelectorAll('input[name="sign"]').forEach(item => item.checked = false);
+      state.space = 1;
+      state.air = 1;
+      state.washer = 1;
+      document.querySelectorAll(".segments").forEach(group => {
+        group.querySelectorAll(".seg").forEach((item, index) => {
+          item.setAttribute("aria-pressed", index === 1 ? "true" : "false");
+        });
+      });
+      update();
+    });
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      window.setTimeout(() => toast.classList.remove("show"), 1600);
+    }
+
+    update();
+  </script>
+</body>
+</html>

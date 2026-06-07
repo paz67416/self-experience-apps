@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>寝苦しさとエアコン我慢のちょうどよさチェッカー</title>
+  <meta name="description" content="梅雨から夏の寝苦しい夜に、湿度・室温・体のサイン・エアコンを我慢する感覚から、今夜の調整ポイントを確認する静的チェックアプリです。">
+  <style>
+    :root {
+      --bg: #f6f8f4;
+      --ink: #1f2a24;
+      --muted: #617067;
+      --line: #d9e1d7;
+      --panel: #ffffff;
+      --green: #1f8a70;
+      --blue: #3478b8;
+      --yellow: #d89a21;
+      --red: #c94d4d;
+      --shadow: 0 18px 40px rgba(34, 48, 39, .12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(91, 153, 127, .18), transparent 26%),
+        linear-gradient(180deg, #fbfcf8 0%, var(--bg) 45%, #eef4f6 100%);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+
+    a { color: var(--blue); }
+
+    .wrap {
+      width: min(1040px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 48px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr);
+      gap: 24px;
+      align-items: stretch;
+      margin-bottom: 22px;
+    }
+
+    .hero,
+    .panel,
+    .result {
+      background: rgba(255, 255, 255, .88);
+      border: 1px solid rgba(217, 225, 215, .9);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      min-height: 320px;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -12% -34% 42%;
+      height: 260px;
+      background:
+        repeating-linear-gradient(90deg, rgba(31, 138, 112, .16) 0 2px, transparent 2px 20px),
+        linear-gradient(135deg, rgba(52, 120, 184, .18), rgba(216, 154, 33, .14));
+      transform: rotate(-8deg);
+      border-radius: 8px;
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--green);
+      letter-spacing: 0;
+      padding: 7px 10px;
+      background: rgba(31, 138, 112, .08);
+      border: 1px solid rgba(31, 138, 112, .18);
+      border-radius: 999px;
+    }
+
+    h1 {
+      margin: 18px 0 12px;
+      font-size: clamp(32px, 5vw, 54px);
+      line-height: 1.08;
+      letter-spacing: 0;
+      max-width: 11em;
+    }
+
+    .lead {
+      font-size: 17px;
+      line-height: 1.85;
+      color: var(--muted);
+      max-width: 35em;
+      margin: 0;
+    }
+
+    .night-card {
+      border-radius: 8px;
+      padding: 24px;
+      background: #14251f;
+      color: #eff7f1;
+      min-height: 320px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .night-card::before {
+      content: "";
+      position: absolute;
+      inset: 18px 18px auto auto;
+      width: 86px;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: #f6dfa0;
+      box-shadow: 0 0 38px rgba(246, 223, 160, .35);
+    }
+
+    .night-card::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0 0;
+      height: 120px;
+      background: linear-gradient(180deg, transparent, rgba(255,255,255,.08));
+    }
+
+    .moon-note {
+      position: relative;
+      z-index: 1;
+      font-size: 15px;
+      line-height: 1.8;
+      max-width: 18em;
+      color: #d8e7dd;
+    }
+
+    .meter {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 8px;
+    }
+
+    .meter-row {
+      height: 8px;
+      border-radius: 99px;
+      background: rgba(255,255,255,.14);
+      overflow: hidden;
+    }
+
+    .meter-row span {
+      display: block;
+      height: 100%;
+      width: var(--w);
+      background: linear-gradient(90deg, #6bd0b0, #f0ca6a);
+      border-radius: inherit;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .panel,
+    .result {
+      border-radius: 8px;
+      padding: 22px;
+    }
+
+    .panel + .panel { margin-top: 16px; }
+
+    h2 {
+      font-size: 21px;
+      line-height: 1.35;
+      margin: 0 0 16px;
+      letter-spacing: 0;
+    }
+
+    .field {
+      margin: 18px 0;
+    }
+
+    .field-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    label,
+    .label {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .value {
+      color: var(--green);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--green);
+    }
+
+    .seg-group {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .seg,
+    .ghost {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 11px 10px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      min-height: 44px;
+    }
+
+    .seg[aria-pressed="true"] {
+      color: #fff;
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .checks {
+      display: grid;
+      gap: 9px;
+    }
+
+    .check {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      line-height: 1.55;
+      font-weight: 600;
+    }
+
+    .check input {
+      width: 18px;
+      height: 18px;
+      margin-top: 3px;
+      accent-color: var(--green);
+    }
+
+    .result {
+      position: sticky;
+      top: 16px;
+    }
+
+    .score-ring {
+      width: 164px;
+      aspect-ratio: 1;
+      margin: 4px auto 18px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: conic-gradient(var(--score-color) calc(var(--score) * 1%), #edf1ed 0);
+    }
+
+    .score-ring div {
+      width: 122px;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .score {
+      font-size: 42px;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .badge {
+      display: inline-flex;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(31, 138, 112, .1);
+      color: var(--green);
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    .result-title {
+      font-size: 24px;
+      line-height: 1.34;
+      margin: 0 0 12px;
+    }
+
+    .copy {
+      color: var(--muted);
+      line-height: 1.75;
+      margin: 0 0 14px;
+    }
+
+    .kamae-box {
+      background: #f4f8f5;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      margin: 14px 0;
+    }
+
+    .kamae-name {
+      font-weight: 900;
+      color: var(--green);
+      margin-bottom: 6px;
+    }
+
+    .actions {
+      margin: 0;
+      padding-left: 20px;
+      line-height: 1.7;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .ghost:hover,
+    .seg:hover {
+      transform: translateY(-1px);
+    }
+
+    .note {
+      margin-top: 16px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .refs {
+      font-size: 14px;
+      line-height: 1.8;
+      color: var(--muted);
+      padding-left: 18px;
+      margin-bottom: 0;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%) translateY(14px);
+      opacity: 0;
+      background: #14251f;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 999px;
+      pointer-events: none;
+      transition: .18s ease;
+      z-index: 5;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 880px) {
+      header,
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .result {
+        position: static;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .wrap {
+        width: min(100% - 22px, 1040px);
+        padding-top: 14px;
+      }
+
+      .hero,
+      .panel,
+      .result,
+      .night-card {
+        padding: 18px;
+      }
+
+      .seg-group {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <section class="hero">
+        <div>
+          <span class="eyebrow">梅雨の寝苦しさ × エアコン我慢</span>
+          <h1>今夜の<br>ちょうどいい構えを<br>見つける</h1>
+          <p class="lead">湿度が高い夜は、暑さだけでなく「まだ我慢できる気がする」という感覚も判断をにぶらせます。室温、湿度、体のサイン、節電への気持ちから、今夜の調整ポイントを確認します。</p>
+        </div>
+      </section>
+
+      <aside class="night-card" aria-label="夜の状態イメージ">
+        <p class="moon-note">眠る前の判断は、意外と気合いに引っ張られます。ここでは正解探しではなく、体を回復させるための「構え」を見ます。</p>
+        <div class="meter" aria-hidden="true">
+          <div class="meter-row"><span style="--w: 72%"></span></div>
+          <div class="meter-row"><span style="--w: 48%"></span></div>
+          <div class="meter-row"><span style="--w: 63%"></span></div>
+        </div>
+      </aside>
+    </header>
+
+    <main>
+      <div>
+        <section class="panel">
+          <h2>今の部屋と体の感じ</h2>
+
+          <div class="field">
+            <div class="field-top">
+              <label for="temp">室温</label>
+              <span class="value"><span id="tempValue">28</span>℃</span>
+            </div>
+            <input id="temp" type="range" min="22" max="36" value="28">
+          </div>
+
+          <div class="field">
+            <div class="field-top">
+              <label for="humidity">湿度</label>
+              <span class="value"><span id="humidityValue">72</span>%</span>
+            </div>
+            <input id="humidity" type="range" min="35" max="95" value="72">
+          </div>
+
+          <div class="field">
+            <div class="field-top">
+              <span class="label">エアコン・除湿の状態</span>
+            </div>
+            <div class="seg-group" data-name="aircon">
+              <button class="seg" type="button" data-value="0" aria-pressed="true">使えている</button>
+              <button class="seg" type="button" data-value="1" aria-pressed="false">弱めに我慢</button>
+              <button class="seg" type="button" data-value="2" aria-pressed="false">ほぼ我慢</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-top">
+              <span class="label">今夜の寝具</span>
+            </div>
+            <div class="seg-group" data-name="bedding">
+              <button class="seg" type="button" data-value="0" aria-pressed="true">軽め</button>
+              <button class="seg" type="button" data-value="1" aria-pressed="false">普通</button>
+              <button class="seg" type="button" data-value="2" aria-pressed="false">暑めかも</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>判断をゆらすもの</h2>
+
+          <div class="field">
+            <div class="field-top">
+              <span class="label">節電への気持ち</span>
+            </div>
+            <div class="seg-group" data-name="saving">
+              <button class="seg" type="button" data-value="0" aria-pressed="true">ほどほど</button>
+              <button class="seg" type="button" data-value="1" aria-pressed="false">気になる</button>
+              <button class="seg" type="button" data-value="2" aria-pressed="false">強く我慢</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-top">
+              <span class="label">体のサイン</span>
+            </div>
+            <div class="checks">
+              <label class="check"><input type="checkbox" name="sign" value="13">寝つきが悪そう、すでに体がだるい</label>
+              <label class="check"><input type="checkbox" name="sign" value="13">頭が重い、ぼんやりする</label>
+              <label class="check"><input type="checkbox" name="sign" value="12">汗が引かない、または汗をかきにくい</label>
+              <label class="check"><input type="checkbox" name="sign" value="14">高齢者、子ども、体調不良の人が同じ部屋にいる</label>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>このチェックについて</h2>
+          <p class="copy">これは医療判断ではなく、寝る前の環境と感覚を見直すための生活チェックです。強い体調不良がある場合は、自治体や医療機関などの情報を優先してください。</p>
+          <ul class="refs">
+            <li><a href="https://www.mhlw.go.jp/seisakunitsuite/bunya/kenkou_iryou/kenkou/nettyuu/nettyuu_taisaku/prevent.html" target="_blank" rel="noopener">厚生労働省：熱中症を防ぎましょう</a></li>
+            <li><a href="https://www.daikin.co.jp/air/life/laboratory/rainy-season" target="_blank" rel="noopener">ダイキン：梅雨の困りごとと解決法</a></li>
+            <li><a href="https://panasonic.jp/topics/2026/06/000001206.html" target="_blank" rel="noopener">パナソニック：梅雨型熱中症とエアコン活用</a></li>
+          </ul>
+        </section>
+      </div>
+
+      <aside class="result" aria-live="polite">
+        <div class="score-ring" id="scoreRing" style="--score: 55; --score-color: var(--yellow);">
+          <div><span class="score" id="score">55</span></div>
+        </div>
+        <span class="badge" id="badge">調整ゾーン</span>
+        <h2 class="result-title" id="resultTitle">我慢より、湿度を先に整えたい夜です</h2>
+        <p class="copy" id="resultCopy">眠れなさそうな要素が少し重なっています。温度だけでなく湿度と風の通りを見て、体が休める側に寄せましょう。</p>
+
+        <div class="kamae-box">
+          <div class="kamae-name" id="kamaeName">今夜の構え：調整構え</div>
+          <div class="copy" id="kamaeText">「まだ大丈夫か」ではなく、「明日の体が戻るか」を基準にする構えです。</div>
+        </div>
+
+        <ul class="actions" id="actions"></ul>
+
+        <div class="button-row">
+          <button class="ghost" type="button" id="copyButton">結果をコピー</button>
+          <button class="ghost" type="button" id="resetButton">初期値に戻す</button>
+        </div>
+        <p class="note">点数は目安です。寝る前に「我慢の構え」へ寄りすぎていないかを見るために使ってください。</p>
+      </aside>
+    </main>
+  </div>
+
+  <div class="toast" id="toast">コピーしました</div>
+
+  <script>
+    const state = {
+      aircon: 0,
+      bedding: 0,
+      saving: 0
+    };
+
+    const temp = document.getElementById("temp");
+    const humidity = document.getElementById("humidity");
+    const tempValue = document.getElementById("tempValue");
+    const humidityValue = document.getElementById("humidityValue");
+    const scoreEl = document.getElementById("score");
+    const scoreRing = document.getElementById("scoreRing");
+    const badge = document.getElementById("badge");
+    const resultTitle = document.getElementById("resultTitle");
+    const resultCopy = document.getElementById("resultCopy");
+    const kamaeName = document.getElementById("kamaeName");
+    const kamaeText = document.getElementById("kamaeText");
+    const actions = document.getElementById("actions");
+    const toast = document.getElementById("toast");
+
+    const results = [
+      {
+        max: 34,
+        color: "var(--green)",
+        badge: "整えゾーン",
+        title: "今夜は小さな調整で眠れそうです",
+        copy: "大きな危なさは少なめです。ただ、湿度が上がると体感は変わります。寝る前に風の通りと寝具の軽さだけ確認しておきましょう。",
+        kamae: "今夜の構え：整え構え",
+        kamaeText: "がんばって管理するより、眠りやすい条件をそっと置いておく構えです。",
+        actions: ["寝具を一段軽くする", "扇風機やサーキュレーターの風を直接当てすぎず回す", "起床後にだるさが残るかをメモする"]
+      },
+      {
+        max: 56,
+        color: "var(--yellow)",
+        badge: "調整ゾーン",
+        title: "我慢より、湿度を先に整えたい夜です",
+        copy: "眠れなさそうな要素が少し重なっています。温度だけでなく湿度と風の通りを見て、体が休める側に寄せましょう。",
+        kamae: "今夜の構え：調整構え",
+        kamaeText: "「まだ大丈夫か」ではなく、「明日の体が戻るか」を基準にする構えです。",
+        actions: ["除湿か弱めの冷房を短時間でも使う", "寝る前に水分を少し取る", "厚手の寝具や部屋着を軽くする"]
+      },
+      {
+        max: 76,
+        color: "var(--red)",
+        badge: "寝苦しさ注意",
+        title: "体が休みにくい条件が重なっています",
+        copy: "節電したい気持ちは自然ですが、今夜は回復を優先したい状態です。室温だけで判断せず、湿度、汗、だるさをセットで見てください。",
+        kamae: "今夜の構え：回復構え",
+        kamaeText: "我慢を成功にするのではなく、体が戻る環境を選ぶ構えです。",
+        actions: ["エアコンの自動運転や除湿を検討する", "風の通り道を作り、湿気をためない", "体調が悪い人がいる場合は早めに涼しい環境へ移す"]
+      },
+      {
+        max: 101,
+        color: "var(--red)",
+        badge: "要見直し",
+        title: "今夜は我慢の構えから離れたい状態です",
+        copy: "寝苦しさだけでなく、体調面の負担も気にしたい点数です。無理に耐えるより、冷房・除湿・水分補給を早めに組み合わせましょう。",
+        kamae: "今夜の構え：避難構え",
+        kamaeText: "根性で保つのではなく、条件を変えることを選ぶ構えです。",
+        actions: ["冷房や除湿を使い、室内環境を下げる", "水分と休息を優先する", "強い不調がある場合は公的情報や医療相談を優先する"]
+      }
+    ];
+
+    document.querySelectorAll(".seg-group").forEach(group => {
+      group.addEventListener("click", event => {
+        const button = event.target.closest(".seg");
+        if (!button) return;
+        group.querySelectorAll(".seg").forEach(item => item.setAttribute("aria-pressed", "false"));
+        button.setAttribute("aria-pressed", "true");
+        state[group.dataset.name] = Number(button.dataset.value);
+        update();
+      });
+    });
+
+    document.querySelectorAll("input").forEach(input => input.addEventListener("input", update));
+
+    document.getElementById("copyButton").addEventListener("click", async () => {
+      const text = [
+        "寝苦しさとエアコン我慢のちょうどよさチェッカー",
+        `点数：${scoreEl.textContent}`,
+        `判定：${badge.textContent}`,
+        resultTitle.textContent,
+        kamaeName.textContent,
+        [...actions.querySelectorAll("li")].map(li => `・${li.textContent}`).join("\n")
+      ].join("\n");
+
+      try {
+        await navigator.clipboard.writeText(text);
+        flash("コピーしました");
+      } catch (error) {
+        flash("コピーできませんでした");
+      }
+    });
+
+    document.getElementById("resetButton").addEventListener("click", () => {
+      temp.value = 28;
+      humidity.value = 72;
+      document.querySelectorAll("input[type='checkbox']").forEach(item => item.checked = false);
+      Object.keys(state).forEach(key => state[key] = 0);
+      document.querySelectorAll(".seg-group").forEach(group => {
+        group.querySelectorAll(".seg").forEach((button, index) => {
+          button.setAttribute("aria-pressed", index === 0 ? "true" : "false");
+        });
+      });
+      update();
+    });
+
+    function update() {
+      const tempScore = Math.max(0, (Number(temp.value) - 24) * 3.2);
+      const humidityScore = Math.max(0, (Number(humidity.value) - 55) * 0.72);
+      const airconScore = state.aircon * 11;
+      const beddingScore = state.bedding * 7;
+      const savingScore = state.saving * 8;
+      const signScore = [...document.querySelectorAll("input[name='sign']:checked")]
+        .reduce((sum, item) => sum + Number(item.value), 0);
+
+      let score = Math.round(tempScore + humidityScore + airconScore + beddingScore + savingScore + signScore);
+      score = Math.max(8, Math.min(98, score));
+
+      const result = results.find(item => score < item.max);
+      tempValue.textContent = temp.value;
+      humidityValue.textContent = humidity.value;
+      scoreEl.textContent = score;
+      scoreRing.style.setProperty("--score", score);
+      scoreRing.style.setProperty("--score-color", result.color);
+      badge.textContent = result.badge;
+      badge.style.color = result.color;
+      resultTitle.textContent = result.title;
+      resultCopy.textContent = result.copy;
+      kamaeName.textContent = result.kamae;
+      kamaeText.textContent = result.kamaeText;
+      actions.innerHTML = result.actions.map(action => `<li>${escapeHtml(action)}</li>`).join("");
+    }
+
+    function flash(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 1600);
+    }
+
+    function escapeHtml(value) {
+      return value.replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#039;"
+      }[char]));
+    }
+
+    update();
+  </script>
+</body>
+</html>

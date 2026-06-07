@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KAMAE ARTS | 希望の構えを選ぶ観測アプリ</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Georgia', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1a1f35 50%, #0f172a 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at 20% -10%, rgba(236, 72, 153, .12) 0%, transparent 42%),
+        radial-gradient(circle at 80% 110%, rgba(99, 102, 241, .12) 0%, transparent 42%);
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 560px;
+      padding: 28px 18px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    h1 {
+      font-size: 30px;
+      letter-spacing: .28em;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      color: #94a3b8;
+      letter-spacing: .08em;
+      line-height: 1.7;
+    }
+
+    .card {
+      background: rgba(30, 41, 59, .68);
+      border: 1px solid rgba(148, 163, 184, .14);
+      border-radius: 22px;
+      padding: 26px;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, .45);
+      backdrop-filter: blur(10px);
+      margin-bottom: 18px;
+      animation: slideIn .35s ease-out;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .label {
+      display: block;
+      font-size: 10px;
+      letter-spacing: .2em;
+      color: #64748b;
+      margin-bottom: 14px;
+      text-transform: uppercase;
+    }
+
+    .lead {
+      font-size: 14px;
+      line-height: 1.9;
+      color: #cbd5e1;
+      margin-bottom: 22px;
+    }
+
+    .small-note {
+      font-size: 12px;
+      line-height: 1.8;
+      color: #94a3b8;
+      margin-top: 14px;
+      border-left: 3px solid rgba(236, 72, 153, .7);
+      padding-left: 12px;
+    }
+
+    .question {
+      font-size: 17px;
+      font-weight: bold;
+      color: #fff;
+      line-height: 1.7;
+      margin-bottom: 18px;
+    }
+
+    .choice-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .choice-btn {
+      width: 100%;
+      border: 1px solid rgba(148, 163, 184, .16);
+      background: rgba(51, 65, 85, .35);
+      color: #e2e8f0;
+      padding: 14px 16px;
+      border-radius: 14px;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      transition: .22s ease;
+    }
+
+    .choice-btn:hover {
+      transform: translateY(-1px);
+      background: rgba(71, 85, 105, .55);
+      border-color: rgba(236, 72, 153, .45);
+    }
+
+    .choice-main {
+      display: block;
+      font-size: 15px;
+      font-weight: bold;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .choice-sub {
+      display: block;
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+
+    .phase { display: none; }
+    .phase.active { display: block; }
+
+    .result-title {
+      font-size: 23px;
+      color: #fff;
+      margin-bottom: 12px;
+      line-height: 1.6;
+    }
+
+    .result-tag {
+      display: inline-block;
+      font-size: 11px;
+      letter-spacing: .12em;
+      color: #fbcfe8;
+      background: rgba(236, 72, 153, .14);
+      border: 1px solid rgba(236, 72, 153, .28);
+      border-radius: 999px;
+      padding: 6px 10px;
+      margin-bottom: 16px;
+    }
+
+    .advice-box {
+      background: rgba(15, 23, 42, .45);
+      border-left: 3px solid #ec4899;
+      border-radius: 0 14px 14px 0;
+      padding: 16px;
+      margin: 16px 0;
+      color: #cbd5e1;
+      font-size: 14px;
+      line-height: 1.9;
+    }
+
+    .action-box {
+      background: rgba(99, 102, 241, .12);
+      border: 1px solid rgba(129, 140, 248, .22);
+      border-radius: 16px;
+      padding: 16px;
+      margin-top: 16px;
+      font-size: 14px;
+      line-height: 1.9;
+      color: #dbeafe;
+    }
+
+    .btn-action {
+      width: 100%;
+      border: none;
+      color: #fff;
+      background: linear-gradient(135deg, #ec4899, #6366f1);
+      padding: 14px 18px;
+      border-radius: 13px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: bold;
+      font-family: inherit;
+      margin-top: 18px;
+      box-shadow: 0 5px 18px rgba(236, 72, 153, .28);
+      transition: .22s ease;
+    }
+
+    .btn-action:hover { transform: translateY(-1px); }
+
+    .btn-action.btn-share {
+      background: #000;
+      box-shadow: 0 5px 18px rgba(0,0,0,.35);
+    }
+
+    .btn-secondary {
+      background: rgba(51, 65, 85, .45);
+      border: 1px solid rgba(148, 163, 184, .22);
+      box-shadow: none;
+    }
+
+    .rating-row {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .star {
+      font-size: 32px;
+      color: #475569;
+      cursor: pointer;
+      user-select: none;
+      transition: .18s ease;
+    }
+
+    .star.on {
+      color: #fbbf24;
+      text-shadow: 0 0 12px rgba(251, 191, 36, .6);
+      transform: scale(1.12);
+    }
+
+    .footer {
+      text-align: center;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.8;
+      padding: 8px 12px 24px;
+    }
+
+    .footer-tagline {
+      color: #94a3b8;
+      margin-bottom: 14px;
+      font-size: 13px;
+      line-height: 1.9;
+    }
+
+    .footer-privacy {
+      background: rgba(15, 23, 42, .55);
+      border: 1px solid rgba(148, 163, 184, .1);
+      border-radius: 14px;
+      padding: 14px 16px;
+      color: #64748b;
+      font-size: 11.5px;
+      line-height: 1.9;
+      margin-bottom: 14px;
+    }
+
+    .footer-version {
+      color: #475569;
+      font-size: 11px;
+      letter-spacing: .1em;
+    }
+
+    .history {
+      margin-top: 18px;
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.8;
+    }
+
+    @media (min-width: 520px) {
+      .choice-grid.two { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>KAMAE ARTS</h1>
+      <p class="subtitle">希望の構えを選び、関係性の見え方を整える小さな観測装置</p>
+    </header>
+
+    <section id="phaseStart" class="phase active">
+      <div class="card">
+        <span class="label">concept</span>
+        <p class="lead">
+          これは相手を操作するためのアプリではありません。<br>
+          今日のあなたの状態を確認し、どの構えで世界や関係性を見るかを選び、その構えに沿った行動のヒントを受け取るためのアプリです。
+        </p>
+        <button class="btn-action" onclick="showPhase('phaseRole')">構えを選びはじめる</button>
+        <p class="small-note">
+          心理学的には、安心・尊重・境界・自己開示・共感を大切にする方向で設計しています。
+        </p>
+      </div>
+    </section>
+
+    <section id="phaseRole" class="phase">
+      <div class="card">
+        <span class="label">step 1</span>
+        <div class="question">今のあなたに近い状態は？</div>
+        <div class="choice-grid">
+          <button class="choice-btn" onclick="selectState('近づきたい')"><span class="choice-main">近づきたい</span><span class="choice-sub">相手との距離を少し縮めたい</span></button>
+          <button class="choice-btn" onclick="selectState('話を聞きたい')"><span class="choice-main">話を聞きたい</span><span class="choice-sub">相手が安心して話せる場をつくりたい</span></button>
+          <button class="choice-btn" onclick="selectState('本音を伝えたい')"><span class="choice-main">本音を伝えたい</span><span class="choice-sub">責めずに、自分の気持ちを言葉にしたい</span></button>
+          <button class="choice-btn" onclick="selectState('距離を整えたい')"><span class="choice-main">距離を整えたい</span><span class="choice-sub">近づきすぎず、離れすぎない位置を探りたい</span></button>
+          <button class="choice-btn" onclick="selectState('仲直りしたい')"><span class="choice-main">仲直りしたい</span><span class="choice-sub">ズレた関係を少しやわらげたい</span></button>
+          <button class="choice-btn" onclick="selectState('観測だけしたい')"><span class="choice-main">今日は観測だけしたい</span><span class="choice-sub">無理に動かず、場の流れを見たい</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section id="phaseScene" class="phase">
+      <div class="card">
+        <span class="label">step 2</span>
+        <div class="question">今日は、どんな関係性を見たいですか？</div>
+        <div class="choice-grid">
+          <button class="choice-btn" onclick="selectScene('恋愛')"><span class="choice-main">恋愛</span><span class="choice-sub">気になる人との距離や温度を見る</span></button>
+          <button class="choice-btn" onclick="selectScene('信頼関係')"><span class="choice-main">信頼関係</span><span class="choice-sub">安心して話せる場を育てる</span></button>
+          <button class="choice-btn" onclick="selectScene('仲直り')"><span class="choice-main">仲直り</span><span class="choice-sub">ズレた関係を少し整える</span></button>
+          <button class="choice-btn" onclick="selectScene('距離感')"><span class="choice-main">距離感</span><span class="choice-sub">近づきすぎず、離れすぎない位置を探る</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section id="phaseKamae" class="phase">
+      <div class="card">
+        <span class="label">step 3</span>
+        <div class="question">今日は、どんな構えで世界を見たいですか？</div>
+        <div id="kamaeButtons" class="choice-grid"></div>
+      </div>
+    </section>
+
+    <section id="phaseAdvice" class="phase">
+      <div class="card">
+        <span class="label">today's kamae</span>
+        <span id="resultTag" class="result-tag">...</span>
+        <h2 id="resultTitle" class="result-title">...</h2>
+        <p id="resultDesc" class="lead">...</p>
+        <div id="stateHint" class="action-box">...</div>
+        <div id="resultAdvice" class="advice-box">...</div>
+        <div id="resultAction" class="action-box">...</div>
+        <button class="btn-action btn-share" onclick="shareKamae()">𝕏 でシェアする</button>
+        <button class="btn-action" onclick="showPhase('phaseReview')">夜に振り返る</button>
+        <button class="btn-action btn-secondary" onclick="restart()">もう一度選び直す</button>
+      </div>
+    </section>
+
+    <section id="phaseReview" class="phase">
+      <div class="card">
+        <span class="label">evening sync</span>
+        <p class="lead" style="text-align:center;">
+          今日の構えは、あなたの体験とどれくらい整合しましたか？
+        </p>
+        <div class="rating-row">
+          <span class="star" onclick="rate(1)">✦</span>
+          <span class="star" onclick="rate(2)">✦</span>
+          <span class="star" onclick="rate(3)">✦</span>
+          <span class="star" onclick="rate(4)">✦</span>
+          <span class="star" onclick="rate(5)">✦</span>
+        </div>
+        <button class="btn-action" onclick="saveReview()">観測を記録する</button>
+      </div>
+    </section>
+
+    <section id="phaseComplete" class="phase">
+      <div class="card">
+        <span class="label">observation complete</span>
+        <p class="lead" style="text-align:center;">
+          観測を記録しました。<br>
+          あなたに合う構えの傾向が、少しずつ見えてきます。
+        </p>
+        <div id="historyBox" class="history"></div>
+        <button class="btn-action" onclick="restart()">新しい構えを選ぶ</button>
+      </div>
+    </section>
+
+    <div class="footer">
+      <div class="footer-tagline">構えは、相手を支配する技術ではなく、自分の見方と関わり方を整える入口です。</div>
+      <div class="footer-privacy">
+        🔒 プライバシーについて：このアプリの記録はお使いの端末のブラウザ内にのみ保存されます。<br>
+        運営者が閲覧したり、外部サーバーへ送信したりすることは一切ありません。
+      </div>
+      <div class="footer-version">KAMAE ARTS v1.1 &nbsp;·&nbsp; © No Existe</div>
+    </div>
+  </div>
+
+  <script>
+    const KAMAE_LIST = [
+      {
+        id: 'trust',
+        title: '信頼構築の構え',
+        sub: '相手が安心して話せる場をつくる',
+        desc: '今日は、正しさを示すよりも、相手が言葉にしきれなかった部分を受け止める構えです。信頼は、相手を急がせない場所に生まれます。',
+        advice: '相手が少しでも本音を出したら、すぐに評価せず「そう感じていたんだね」と一度受け取ってください。解決よりも、まず受容です。',
+        action: '今日の一手：相手の話を途中で結論づけず、最後に一つだけ「もう少し聞かせて」と添える。'
+      },
+      {
+        id: 'active',
+        title: '積極の構え',
+        sub: '重くならず、一歩だけ近づく',
+        desc: '今日は、関係を動かすために小さな能動性を出す構えです。ただし、押し切るのではなく、相手が受け取りやすい軽さを保ちます。',
+        advice: '好意や関心は、強く出すよりも、短く素直に出す方が安心につながります。「少し話せて嬉しかった」くらいの一言で十分です。',
+        action: '今日の一手：返信・挨拶・誘いのどれか一つだけ、自分から小さく動く。'
+      },
+      {
+        id: 'courage',
+        title: '勇気の構え',
+        sub: '言えなかったことを、責めずに伝える',
+        desc: '今日は、内側に残っていた言葉を、関係を壊すためではなく、整えるために差し出す構えです。勇気は攻撃ではなく、静かな自己開示です。',
+        advice: '「あなたが悪い」ではなく「私はこう感じていた」と主語を自分に戻してください。相手を責めない本音は、信頼を深めることがあります。',
+        action: '今日の一手：「実は少し言いにくかったけど」と前置きして、短く一つだけ伝える。'
+      },
+      {
+        id: 'margin',
+        title: '余白の構え',
+        sub: '答えを急がず、反応を待つ',
+        desc: '今日は、すぐに結果を求めない構えです。沈黙や遅い反応を失敗と見なさず、相手の内側で言葉が育つ時間を残します。',
+        advice: '不安になるほど追いたくなりますが、そこで一拍置くことが関係の安全につながります。余白は冷たさではなく、尊重です。',
+        action: '今日の一手：送信前に一度深呼吸し、言葉を三割短くする。'
+      },
+      {
+        id: 'acceptance',
+        title: '受容の構え',
+        sub: '弱さや不完全さを、すぐ判断しない',
+        desc: '今日は、相手の揺らぎを欠点としてではなく、まだ整っていない事情として見る構えです。理解しきれなくても、否定しない態度が場を守ります。',
+        advice: '相手の曖昧さに出会ったとき、すぐに白黒をつけないでください。「今はそういう状態なんだ」と置けると、関係は壊れにくくなります。',
+        action: '今日の一手：相手の弱さを見たとき、助言より先に「大変だったね」と受け止める。'
+      },
+      {
+        id: 'boundary',
+        title: '境界の構え',
+        sub: '近づきたい気持ちと、自分の安全を両立する',
+        desc: '今日は、相手に合わせすぎず、自分の感覚も守る構えです。よい関係は、溶け合いだけでなく、健全な境界からも育ちます。',
+        advice: '無理に良い人になろうとすると、あとで苦しくなります。できること、できないことを静かに分けることも、信頼の一部です。',
+        action: '今日の一手：無理な依頼や違和感には「少し考えさせて」と返す。'
+      },
+      {
+        id: 'observe',
+        title: '観測の構え',
+        sub: '行動よりも、場の流れを見る',
+        desc: '今日は、無理に関係を動かさず、相手の言葉・間・表情・返信の温度を観測する構えです。動かないことも、一つの選択です。',
+        advice: '今すぐ結論を出さず、相手がどんな時に安心し、どんな時に閉じるのかを見てください。観測は、次の行動の精度を上げます。',
+        action: '今日の一手：相手の反応を三つメモする。言葉、間、表情または返信速度。'
+      },
+      {
+        id: 'surrender',
+        title: '委ねの構え',
+        sub: 'コントロールを少し手放す',
+        desc: '今日は、すべてを自分で決めようとせず、場の自然な流れに耳を澄ます構えです。委ねるとは諦めではなく、過剰な操作をやめることです。',
+        advice: '関係が動かないときほど、無理に意味を作りたくなります。今日は、わからない状態をそのまま抱えてみてください。',
+        action: '今日の一手：答えを出したくなったら、いったん呼吸に戻り「今日は保留でもいい」と言う。'
+      }
+    ];
+
+    const STATE_HINTS = {
+      '近づきたい': '今の状態：近づきたい。今日は一気に踏み込むより、小さな好意や関心を軽く示す方向が合っています。',
+      '話を聞きたい': '今の状態：話を聞きたい。今日は助言よりも受け止めを優先すると、相手が安心しやすくなります。',
+      '本音を伝えたい': '今の状態：本音を伝えたい。今日は相手を責める言葉ではなく、「私はこう感じた」という自己開示に整えると伝わりやすくなります。',
+      '距離を整えたい': '今の状態：距離を整えたい。今日は近づくことだけでなく、自分の安心を守ることも関係性の一部として扱ってください。',
+      '仲直りしたい': '今の状態：仲直りしたい。今日は勝ち負けよりも、ズレた場をやわらげる一言を大切にしてください。',
+      '観測だけしたい': '今の状態：観測だけしたい。今日は無理に動かず、相手の反応や自分の感覚を静かに見るだけでも十分です。'
+    };
+
+    let selectedState = '';
+    let selectedScene = '';
+    let selectedKamae = null;
+    let currentRating = 0;
+
+    const stats = JSON.parse(localStorage.getItem('kamae_arts_history')) || [];
+
+    function showPhase(id) {
+      document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function selectState(state) {
+      selectedState = state;
+      showPhase('phaseScene');
+    }
+
+    function selectScene(scene) {
+      selectedScene = scene;
+      renderKamaeButtons();
+      showPhase('phaseKamae');
+    }
+
+    function renderKamaeButtons() {
+      const area = document.getElementById('kamaeButtons');
+      area.innerHTML = '';
+      KAMAE_LIST.forEach(k => {
+        const btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.innerHTML = `<span class="choice-main">${k.title}</span><span class="choice-sub">${k.sub}</span>`;
+        btn.onclick = () => selectKamae(k.id);
+        area.appendChild(btn);
+      });
+    }
+
+    function selectKamae(id) {
+      selectedKamae = KAMAE_LIST.find(k => k.id === id);
+      const tag = `${selectedScene} / ${selectedState}`;
+      document.getElementById('resultTag').innerText = tag;
+      document.getElementById('resultTitle').innerText = selectedKamae.title;
+      document.getElementById('resultDesc').innerText = selectedKamae.desc;
+      document.getElementById('stateHint').innerText = STATE_HINTS[selectedState] || '今の状態に合わせて、無理のない構えを選んでください。';
+      document.getElementById('resultAdvice').innerText = selectedKamae.advice;
+      document.getElementById('resultAction').innerText = selectedKamae.action;
+      showPhase('phaseAdvice');
+    }
+
+    function rate(n) {
+      currentRating = n;
+      document.querySelectorAll('.star').forEach((s, i) => {
+        s.classList.toggle('on', i < n);
+      });
+    }
+
+    function saveReview() {
+      if (!selectedKamae) return;
+      if (currentRating === 0) {
+        alert('今日の整合感を選んでください');
+        return;
+      }
+      const record = {
+        date: new Date().toLocaleDateString('ja-JP'),
+        state: selectedState,
+        scene: selectedScene,
+        kamae: selectedKamae.title,
+        rating: currentRating
+      };
+      stats.push(record);
+      localStorage.setItem('kamae_arts_history', JSON.stringify(stats));
+      renderHistory();
+      showPhase('phaseComplete');
+    }
+
+    function renderHistory() {
+      const box = document.getElementById('historyBox');
+      const recent = stats.slice(-5).reverse();
+      if (recent.length === 0) {
+        box.innerHTML = '';
+        return;
+      }
+      box.innerHTML = '<strong>最近の観測</strong><br>' + recent.map(r =>
+        `${r.date}｜${r.scene}｜${r.state || '状態未記録'}｜${r.kamae}｜整合感 ${'★'.repeat(r.rating)}`
+      ).join('<br>');
+    }
+
+    function shareKamae() {
+      if (!selectedKamae) return;
+      const text = `今日の構え：${selectedKamae.title}\n「${selectedKamae.sub}」\n\n${selectedKamae.action}\n\n#KAMAE_ARTS #構え`;
+      const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+      window.open(url, '_blank');
+    }
+
+    function restart() {
+      selectedState = '';
+      selectedScene = '';
+      selectedKamae = null;
+      currentRating = 0;
+      document.querySelectorAll('.star').forEach(s => s.classList.remove('on'));
+      showPhase('phaseRole');
+    }
+  </script>
+</body>
+</html>
